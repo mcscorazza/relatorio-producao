@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Mock
+mock/
+
 # Python
 __pycache__/
 *.py[cod]

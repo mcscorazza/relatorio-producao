@@ -380,30 +380,39 @@ def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim):
             ultima["duracao"] = (limite - ultima["inicio"]).total_seconds()
             ultima["status"] = "Finalizada"
 
-        # Garantia de não sobreposição: se o fim ficou depois do início do
-        # próximo ciclo (a etapa 10 sintética dele invadiu a última etapa
-        # real deste), encurta a etapa 10 do próximo para começar no fim
-        # deste ciclo.
-        if limite > proximo["inicio_ciclo"]:
-            e10 = proximo["etapa_10"]
-            e20 = proximo["etapa_20"]
-            if e10 and limite < e20["inicio"]:
-                e10["inicio"] = limite
-                e10["duracao"] = (e10["fim"] - limite).total_seconds()
-                proximo["inicio_ciclo"] = limite
-            else:
-                proximo["etapa_10"] = None
-                proximo["inicio_ciclo"] = e20["inicio"]
-            fim_prox = proximo["fim_ciclo"]
-            proximo["duracao_ciclo"] = (
-                (fim_prox - proximo["inicio_ciclo"]).total_seconds()
-                if fim_prox else None
-            )
-
         atual["fim_ciclo"] = limite
         atual["duracao_ciclo"] = (limite - atual["inicio_ciclo"]).total_seconds()
         atual["status"] = "Completo"
         atual["fim_forcado"] = True
+
+    # ---------------------------------------------------------
+    # 8.2 Garantir que ciclos consecutivos não se sobreponham
+    #
+    # A etapa 10 do próximo ciclo é sintética (5 min antes da etapa 20)
+    # e pode invadir a etapa 60 / última etapa real do ciclo anterior.
+    # Nesse caso, ela é encurtada (ou removida) para começar no fim
+    # do ciclo anterior.
+    # ---------------------------------------------------------
+    for atual, proximo in zip(ciclos, ciclos[1:]):
+        fim_atual = atual["fim_ciclo"]
+        if fim_atual is None or fim_atual <= proximo["inicio_ciclo"]:
+            continue
+
+        e10 = proximo["etapa_10"]
+        e20 = proximo["etapa_20"]
+        if e10 and fim_atual < e20["inicio"]:
+            e10["inicio"] = fim_atual
+            e10["duracao"] = (e10["fim"] - fim_atual).total_seconds()
+            proximo["inicio_ciclo"] = fim_atual
+        else:
+            proximo["etapa_10"] = None
+            proximo["inicio_ciclo"] = e20["inicio"]
+
+        fim_prox = proximo["fim_ciclo"]
+        proximo["duracao_ciclo"] = (
+            (fim_prox - proximo["inicio_ciclo"]).total_seconds()
+            if fim_prox else None
+        )
 
     # ---------------------------------------------------------
     # 9. Filtrar pela janela solicitada
