@@ -773,7 +773,7 @@
         </div>
         <div class="card c4">
           <h2>Arco aberto por máquina</h2>
-          <p class="hint">Dentro dos ciclos filtrados.</p>
+          <p class="hint">Utilização = arco ÷ tempo em ciclo, por máquina.</p>
           <div class="chart-box" style="height: 200px">
             <canvas id="cArco"></canvas>
           </div>
@@ -939,6 +939,23 @@
         maxBarThickness: 34,
         ...extra,
       });
+      // Para barras empilhadas: arredonda só os cantos externos da pilha
+      // (embaixo na 1ª barra com valor, em cima na última). Uma barra sozinha
+      // no dia fica arredondada dos dois lados.
+      const raioEmpilhado = (r = 7) => (ctx) => {
+        const ds = ctx.chart.data.datasets;
+        const i = ctx.dataIndex;
+        const tem = (j) => (Number(ds[j].data[i]) || 0) > 0;
+        let abaixo = false, acima = false;
+        for (let j = 0; j < ds.length; j++) {
+          if (j < ctx.datasetIndex && tem(j)) abaixo = true;
+          if (j > ctx.datasetIndex && tem(j)) acima = true;
+        }
+        return {
+          topLeft: acima ? 0 : r, topRight: acima ? 0 : r,
+          bottomLeft: abaixo ? 0 : r, bottomRight: abaixo ? 0 : r,
+        };
+      };
 
       function render() {
         const { ciclos, paradas, disponivel } = filtros();
@@ -950,10 +967,6 @@
         const duracoes = produtivos.map((c) => c.duracao_prod_s);
 
         const arco = {};
-        const tempoCiclos = completos.reduce(
-          (a, c) => a + (c.duracao_prod_s || 0),
-          0,
-        );
         const tempoEmCiclo = ciclos.reduce(
           (a, c) => a + (c.duracao_prod_s || 0),
           0,
@@ -965,7 +978,13 @@
             arco[m].s += v.arco_s || 0;
             arco[m].as += (v.corrente_A || 0) * (v.arco_s || 0);
           }
-        const arcoTotal = Object.values(arco).reduce((a, v) => a + v.s, 0);
+        // Utilização do arco = arco ÷ tempo em ciclo, POR MÁQUINA (cada máquina
+        // pode ficar até 100% do tempo de ciclo). Mesmo denominador do KPI.
+        const nomesMaq = Object.keys(arco).sort();
+        const utilMaq = (m) => (tempoEmCiclo ? (arco[m].s / tempoEmCiclo) * 100 : null);
+        const utilMedia = nomesMaq.length && tempoEmCiclo
+          ? nomesMaq.reduce((a, m) => a + utilMaq(m), 0) / nomesMaq.length
+          : null;
         const ociosoTotal = paradas.reduce((a, p) => a + p.duracao_s, 0);
         const ocup = tempoDisp
           ? Math.min(100, (tempoEmCiclo / tempoDisp) * 100)
@@ -1001,18 +1020,20 @@
             { cor: "var(--good)", meter: ocup == null ? null : ocup },
           ) +
           kpi(
-            "Arco aberto",
-            fmtDur(arcoTotal),
-            tempoCiclos
-              ? `${((arcoTotal / tempoCiclos) * 100).toFixed(0)}% do tempo de ciclo (máquinas somadas)`
-              : "—",
-            { cor: "var(--e40)" },
+            "Arco aberto (média)",
+            utilMedia == null ? "—" : utilMedia.toFixed(0) + "%",
+            nomesMaq.length
+              ? nomesMaq
+                  .map((m) => `${esc(m.replace("VigaHTT_", ""))} ${utilMaq(m).toFixed(0)}%`)
+                  .join(" · ")
+              : "sem dados de soldagem",
+            { cor: "var(--e40)", meter: utilMedia },
           ) +
           kpi(
             "Ocioso entre ciclos",
             fmtDur(ociosoTotal),
             paradas.length
-              ? `${paradas.length} intervalos · média ${fmtDur(ociosoTotal / paradas.length)}`
+              ? `${paradas.length} intervalo${paradas.length > 1 ? "s" : ""} · média ${fmtDur(ociosoTotal / paradas.length)}`
               : "sem intervalos",
             { cor: "var(--warn)" },
           ) +
@@ -1034,7 +1055,7 @@
             labels: dias.map(fmtDia),
             datasets: turnos.map((t) => ({
               label: t,
-              ...barra(corTurno(t)),
+              ...barra(corTurno(t), { borderRadius: raioEmpilhado() }),
               data: dias.map(
                 (d) =>
                   completos.filter((c) => c.dia === d && c.turno === t).length,
@@ -1200,7 +1221,7 @@
             .map((m) => {
               const a = arco[m],
                 cor = a.s ? a.as / a.s : null;
-              return `<div><strong>${esc(m.replace("VigaHTT_", ""))}</strong>Utilização <b>${tempoCiclos ? ((a.s / tempoCiclos) * 100).toFixed(0) : "—"}%</b><br>Corrente média <b>${cor ? cor.toFixed(0) + " A" : "—"}</b></div>`;
+              return `<div><strong>${esc(m.replace("VigaHTT_", ""))}</strong>Utilização <b>${tempoEmCiclo ? ((a.s / tempoEmCiclo) * 100).toFixed(0) : "—"}%</b> · ${fmtDur(a.s)}<br>Corrente média <b>${cor ? cor.toFixed(0) + " A" : "—"}</b></div>`;
             })
             .join("") ||
           `<div class="empty">Sem dados de soldagem nos ciclos.</div>`;
@@ -1214,7 +1235,7 @@
             labels: diasP.map(fmtDia),
             datasets: turnosP.map((t) => ({
               label: t,
-              ...barra(corTurno(t)),
+              ...barra(corTurno(t), { borderRadius: raioEmpilhado() }),
               data: diasP.map((d) =>
                 min(
                   paradas
