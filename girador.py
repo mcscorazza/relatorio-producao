@@ -380,6 +380,26 @@ def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim):
             ultima["duracao"] = (limite - ultima["inicio"]).total_seconds()
             ultima["status"] = "Finalizada"
 
+        # Garantia de não sobreposição: se o fim ficou depois do início do
+        # próximo ciclo (a etapa 10 sintética dele invadiu a última etapa
+        # real deste), encurta a etapa 10 do próximo para começar no fim
+        # deste ciclo.
+        if limite > proximo["inicio_ciclo"]:
+            e10 = proximo["etapa_10"]
+            e20 = proximo["etapa_20"]
+            if e10 and limite < e20["inicio"]:
+                e10["inicio"] = limite
+                e10["duracao"] = (e10["fim"] - limite).total_seconds()
+                proximo["inicio_ciclo"] = limite
+            else:
+                proximo["etapa_10"] = None
+                proximo["inicio_ciclo"] = e20["inicio"]
+            fim_prox = proximo["fim_ciclo"]
+            proximo["duracao_ciclo"] = (
+                (fim_prox - proximo["inicio_ciclo"]).total_seconds()
+                if fim_prox else None
+            )
+
         atual["fim_ciclo"] = limite
         atual["duracao_ciclo"] = (limite - atual["inicio_ciclo"]).total_seconds()
         atual["status"] = "Completo"
