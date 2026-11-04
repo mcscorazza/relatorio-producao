@@ -1,0 +1,18 @@
+# Segredos
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Relatórios gerados
+relatorio_producao*.html
+
+# IDE / SO
+.vscode/
+.idea/
+Thumbs.db

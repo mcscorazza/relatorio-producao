@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Relatório de Produção</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 30px 16px;
+        font-family: Arial, sans-serif;
+        background: #f1f5f9;
+        color: #172033;
+      }
+      .card {
+        max-width: 520px;
+        margin: 35px auto;
+        padding: 28px;
+        background: white;
+        border-radius: 14px;
+        box-shadow: 0 8px 28px #00000012;
+      }
+      h1 {
+        margin-top: 0;
+        font-size: 25px;
+      }
+      p {
+        color: #64748b;
+        line-height: 1.5;
+      }
+      label {
+        display: block;
+        margin: 18px 0 7px;
+        font-weight: bold;
+      }
+      input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 7px;
+        font-size: 16px;
+      }
+      .horarios {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      button {
+        width: 100%;
+        margin-top: 25px;
+        padding: 14px;
+        border: 0;
+        border-radius: 8px;
+        background: #155eef;
+        color: white;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #1249bd;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+      .erro {
+        padding: 12px;
+        margin-top: 18px;
+        border-radius: 7px;
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .rodape {
+        font-size: 12px;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Relatório de Produção</h1>
+      <p>
+        Selecione o período e a janela diária de produção para gerar o relatório
+        de soldagem, girador e quantidade produzida por dia.
+      </p>
+
+      <form method="post" id="formulario">
+        <div class="horarios">
+          <div>
+            <label for="data_inicio">Data inicial</label>
+            <input
+              type="date"
+              id="data_inicio"
+              name="data_inicio"
+              value="{{ valores.data_inicio }}"
+              required
+            />
+          </div>
+          <div>
+            <label for="data_fim">Data final</label>
+            <input
+              type="date"
+              id="data_fim"
+              name="data_fim"
+              value="{{ valores.data_fim }}"
+              min="{{ valores.data_inicio }}"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="horarios">
+          <div>
+            <label for="inicio">Horário inicial</label>
+            <input
+              type="time"
+              id="inicio"
+              name="inicio"
+              value="{{ valores.inicio }}"
+              required
+            />
+          </div>
+          <div>
+            <label for="fim">Horário final</label>
+            <input
+              type="time"
+              id="fim"
+              name="fim"
+              value="{{ valores.fim }}"
+              required
+            />
+          </div>
+        </div>
+
+        <button type="submit" id="botao">Gerar relatório</button>
+      </form>
+
+      {% if erro %}
+      <div class="erro">{{ erro }}</div>
+      {% endif %}
+
+      <p class="rodape">Relatório industrial · Processamento na AWS</p>
+    </main>
+
+    <script>
+      const dataInicio = document.getElementById("data_inicio");
+      const dataFim = document.getElementById("data_fim");
+
+      dataInicio.addEventListener("change", function () {
+        dataFim.min = dataInicio.value;
+        if (dataFim.value && dataFim.value < dataInicio.value) {
+          dataFim.value = dataInicio.value;
+        }
+      });
+
+      document
+        .getElementById("formulario")
+        .addEventListener("submit", function (event) {
+          if (dataFim.value < dataInicio.value) {
+            event.preventDefault();
+            alert("A data final deve ser igual ou posterior à data inicial.");
+            return;
+          }
+          const botao = document.getElementById("botao");
+          botao.disabled = true;
+          botao.textContent = "Gerando relatório...";
+        });
+    </script>
+  </body>
+</html>
