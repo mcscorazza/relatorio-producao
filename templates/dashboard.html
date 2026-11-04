@@ -1,457 +1,1450 @@
 <!doctype html>
 <html lang="pt-BR">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Dashboard de Produção · Viga HTT</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script>
-  // Aplica o tema antes de pintar, para evitar "flash".
-  (function () {
-    try {
-      var t = localStorage.getItem("dash-tema");
-      if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
-    } catch (e) {}
-  })();
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<style>
-  :root {
-    --bg:#f5f7fb; --surface:#ffffff; --surface-2:#f1f4f9; --text:#0f172a; --muted:#64748b;
-    --line:#e5e9f2; --shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);
-    --primary:#3b6cf6; --primary-soft:#e8eeff; --primary-ink:#ffffff;
-    --good:#12a150; --good-soft:#dcf6e6; --warn:#d97706; --warn-soft:#fdf0d5; --bad:#dc2626; --bad-soft:#fde4e4;
-    --t1:#3b6cf6; --t2:#9b6bff; --t3:#94a3b8;
-    --e10:#94a3b8; --e20:#3b82f6; --e30:#8b5cf6; --e40:#06b6d4; --e50:#f59e0b; --e60:#10b981;
-    --grid:rgba(100,116,139,.16); --tip:#0f172a; --tip-ink:#f8fafc;
-    --radius:16px;
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --bg:#0b1020; --surface:#131a2e; --surface-2:#1a2340; --text:#e8ecf8; --muted:#93a0bd;
-      --line:#242e4d; --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
-      --primary:#6b93ff; --primary-soft:#1d2a55; --primary-ink:#0b1020;
-      --good:#34d17a; --good-soft:#12301f; --warn:#f5b84a; --warn-soft:#3a2a0c; --bad:#ff7b7b; --bad-soft:#3a1616;
-      --t1:#6b93ff; --t2:#b494ff; --t3:#6f7c99; --grid:rgba(147,160,189,.14); --tip:#e8ecf8; --tip-ink:#0b1020; color-scheme: dark; }
-  }
-  :root[data-theme="dark"] { --bg:#0b1020; --surface:#131a2e; --surface-2:#1a2340; --text:#e8ecf8; --muted:#93a0bd;
-      --line:#242e4d; --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
-      --primary:#6b93ff; --primary-soft:#1d2a55; --primary-ink:#0b1020;
-      --good:#34d17a; --good-soft:#12301f; --warn:#f5b84a; --warn-soft:#3a2a0c; --bad:#ff7b7b; --bad-soft:#3a1616;
-      --t1:#6b93ff; --t2:#b494ff; --t3:#6f7c99; --grid:rgba(147,160,189,.14); --tip:#e8ecf8; --tip-ink:#0b1020; color-scheme: dark; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard de Produção · Viga HTT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // Aplica o tema antes de pintar, para evitar "flash".
+      (function () {
+        try {
+          var t = localStorage.getItem("dash-tema");
+          if (t === "dark" || t === "light")
+            document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+      })();
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --surface: #ffffff;
+        --surface-2: #f1f4f9;
+        --text: #0f172a;
+        --muted: #64748b;
+        --line: #e5e9f2;
+        --shadow:
+          0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+        --primary: #3b6cf6;
+        --primary-soft: #e8eeff;
+        --primary-ink: #ffffff;
+        --good: #12a150;
+        --good-soft: #dcf6e6;
+        --warn: #d97706;
+        --warn-soft: #fdf0d5;
+        --bad: #dc2626;
+        --bad-soft: #fde4e4;
+        --t1: #3b6cf6;
+        --t2: #9b6bff;
+        --t3: #94a3b8;
+        --e10: #94a3b8;
+        --e20: #3b82f6;
+        --e30: #8b5cf6;
+        --e40: #06b6d4;
+        --e50: #f59e0b;
+        --e60: #10b981;
+        --grid: rgba(100, 116, 139, 0.16);
+        --tip: #0f172a;
+        --tip-ink: #f8fafc;
+        --radius: 8px;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #0b1020;
+          --surface: #131a2e;
+          --surface-2: #1a2340;
+          --text: #e8ecf8;
+          --muted: #93a0bd;
+          --line: #242e4d;
+          --shadow:
+            0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35);
+          --primary: #6b93ff;
+          --primary-soft: #1d2a55;
+          --primary-ink: #0b1020;
+          --good: #34d17a;
+          --good-soft: #12301f;
+          --warn: #f5b84a;
+          --warn-soft: #3a2a0c;
+          --bad: #ff7b7b;
+          --bad-soft: #3a1616;
+          --t1: #6b93ff;
+          --t2: #b494ff;
+          --t3: #6f7c99;
+          --grid: rgba(147, 160, 189, 0.14);
+          --tip: #e8ecf8;
+          --tip-ink: #0b1020;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #0b1020;
+        --surface: #131a2e;
+        --surface-2: #1a2340;
+        --text: #e8ecf8;
+        --muted: #93a0bd;
+        --line: #242e4d;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35);
+        --primary: #6b93ff;
+        --primary-soft: #1d2a55;
+        --primary-ink: #0b1020;
+        --good: #34d17a;
+        --good-soft: #12301f;
+        --warn: #f5b84a;
+        --warn-soft: #3a2a0c;
+        --bad: #ff7b7b;
+        --bad-soft: #3a1616;
+        --t1: #6b93ff;
+        --t2: #b494ff;
+        --t3: #6f7c99;
+        --grid: rgba(147, 160, 189, 0.14);
+        --tip: #e8ecf8;
+        --tip-ink: #0b1020;
+        color-scheme: dark;
+      }
 
-  * { box-sizing:border-box; }
-  html { scroll-behavior:smooth; }
-  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-         font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased; }
-  .wrap { max-width:1440px; margin:0 auto; padding:0 24px; }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        font-size: 14px;
+        line-height: 1.45;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 16px 24px;
+      }
 
-  /* Topo */
-  .top { position:sticky; top:0; z-index:20; background:color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter:blur(14px); border-bottom:1px solid var(--line); }
-  .top .wrap { display:flex; align-items:center; gap:16px; padding-top:14px; padding-bottom:14px; flex-wrap:wrap; }
-  .brand { display:flex; align-items:center; gap:12px; margin-right:auto; }
-  .logo { width:38px; height:38px; border-radius:11px; display:grid; place-items:center; color:#fff; font-weight:700;
-          background:linear-gradient(135deg,#3b6cf6,#9b6bff); box-shadow:0 6px 18px rgba(59,108,246,.35); }
-  .brand h1 { font-size:17px; margin:0; letter-spacing:-.01em; }
-  .brand p { margin:0; font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px; }
-  .dot { width:7px; height:7px; border-radius:50%; background:var(--good); box-shadow:0 0 0 3px var(--good-soft); }
-  .dot.load { background:var(--warn); box-shadow:0 0 0 3px var(--warn-soft); animation:pulse 1s infinite; }
-  .dot.err { background:var(--bad); box-shadow:0 0 0 3px var(--bad-soft); }
-  @keyframes pulse { 50% { opacity:.35; } }
+      /* Topo */
+      .top {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: color-mix(in srgb, var(--bg) 82%, transparent);
+        backdrop-filter: blur(14px);
+        border-bottom: 1px solid var(--line);
+      }
+      .top .wrap {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        flex-wrap: wrap;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-right: auto;
+      }
+      .logo {
+        width: 70px;
+        max-height: 50px;
+        margin: 5px 12px 5px 0;
+      }
+      .brand h1 {
+        font-size: 17px;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      .brand p {
+        margin: 0;
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--good);
+        box-shadow: 0 0 0 3px var(--good-soft);
+      }
+      .dot.load {
+        background: var(--warn);
+        box-shadow: 0 0 0 3px var(--warn-soft);
+        animation: pulse 1s infinite;
+      }
+      .dot.err {
+        background: var(--bad);
+        box-shadow: 0 0 0 3px var(--bad-soft);
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.35;
+        }
+      }
 
-  .controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .pill { display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:4px 10px; box-shadow:var(--shadow); }
-  .pill input { border:0; background:transparent; color:var(--text); font:inherit; padding:6px 2px; outline:none; color-scheme:inherit; }
-  .pill .sep { color:var(--muted); }
-  .seg { display:flex; background:var(--surface-2); border-radius:12px; padding:3px; border:1px solid var(--line); }
-  .seg button, .chip { border:0; background:transparent; color:var(--muted); font:inherit; font-weight:500; padding:7px 13px; border-radius:9px; cursor:pointer; transition:.15s; }
-  .seg button:hover, .chip:hover { color:var(--text); }
-  .seg button.on { background:var(--surface); color:var(--text); font-weight:600; box-shadow:0 1px 4px rgba(15,23,42,.12); }
-  .chip { background:var(--surface); border:1px solid var(--line); }
-  .btn { border:0; background:var(--primary); color:var(--primary-ink); font:inherit; font-weight:600; padding:9px 18px; border-radius:12px; cursor:pointer;
-         box-shadow:0 6px 16px color-mix(in srgb, var(--primary) 35%, transparent); transition:.15s; }
-  .btn:hover { filter:brightness(1.07); transform:translateY(-1px); }
-  .btn:disabled { opacity:.6; cursor:wait; transform:none; }
-  .icon-btn { width:38px; height:38px; display:grid; place-items:center; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--text); cursor:pointer; box-shadow:var(--shadow); }
-  .icon-btn:hover { background:var(--surface-2); }
-  :focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 4px 10px;
+        box-shadow: var(--shadow);
+      }
+      .pill input {
+        border: 0;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        padding: 6px 2px;
+        outline: none;
+        color-scheme: inherit;
+      }
+      .pill .sep {
+        color: var(--muted);
+      }
+      .seg {
+        display: flex;
+        background: var(--surface-2);
+        border-radius: 12px;
+        padding: 3px;
+        border: 1px solid var(--line);
+      }
+      .seg button,
+      .chip {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-weight: 500;
+        padding: 7px 13px;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: 0.15s;
+      }
+      .seg button:hover,
+      .chip:hover {
+        color: var(--text);
+      }
+      .seg button.on {
+        background: var(--surface);
+        color: var(--text);
+        font-weight: 600;
+        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+      }
+      .chip {
+        background: var(--surface);
+        border: 1px solid var(--line);
+      }
+      .btn {
+        border: 0;
+        background: var(--primary);
+        color: var(--primary-ink);
+        font: inherit;
+        font-weight: 600;
+        padding: 9px 18px;
+        border-radius: 12px;
+        cursor: pointer;
+        box-shadow: 0 6px 16px
+          color-mix(in srgb, var(--primary) 35%, transparent);
+        transition: 0.15s;
+      }
+      .btn:hover {
+        filter: brightness(1.07);
+        transform: translateY(-1px);
+      }
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: wait;
+        transform: none;
+      }
+      .icon-btn {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        box-shadow: var(--shadow);
+      }
+      .icon-btn:hover {
+        background: var(--surface-2);
+      }
+      :focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
 
-  main { padding-top:22px; padding-bottom:60px; }
-  .msg { padding:12px 16px; border-radius:12px; margin-bottom:16px; font-weight:500; }
-  .msg.erro { background:var(--bad-soft); color:var(--bad); }
-  details.info { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 16px; margin-bottom:18px; color:var(--muted); font-size:13px; }
-  details.info summary { cursor:pointer; font-weight:600; color:var(--text); }
-  details.info p { margin:8px 0 0; }
+      main {
+        padding-top: 22px;
+        padding-bottom: 60px;
+      }
+      .msg {
+        padding: 12px 16px;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        font-weight: 500;
+      }
+      .msg.erro {
+        background: var(--bad-soft);
+        color: var(--bad);
+      }
+      details.info {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 16px;
+        margin-bottom: 18px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      details.info summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--text);
+      }
+      details.info p {
+        margin: 8px 0 0;
+      }
 
-  /* KPIs */
-  .kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:14px; margin-bottom:18px; }
-  .kpi { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; box-shadow:var(--shadow); position:relative; overflow:hidden; }
-  .kpi .lbl { font-size:12px; color:var(--muted); font-weight:600; display:flex; align-items:center; gap:8px; }
-  .kpi .lbl i { width:8px; height:8px; border-radius:3px; background:var(--c, var(--primary)); }
-  .kpi .val { font-size:30px; font-weight:700; letter-spacing:-.02em; margin:8px 0 4px; font-variant-numeric:tabular-nums; }
-  .kpi .sub { font-size:12px; color:var(--muted); min-height:17px; }
-  .kpi .meter { height:6px; border-radius:99px; background:var(--surface-2); margin-top:10px; overflow:hidden; }
-  .kpi .meter b { display:block; height:100%; border-radius:99px; background:var(--c, var(--primary)); transition:width .6s cubic-bezier(.2,.8,.2,1); }
-  .kpi.hero { background:linear-gradient(135deg,#3b6cf6 0%,#7b5cf0 100%); border:0; color:#fff; }
-  .kpi.hero .lbl, .kpi.hero .sub { color:rgba(255,255,255,.82); }
-  .kpi.hero .lbl i { background:#fff; }
+      /* KPIs */
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .kpi {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+        box-shadow: var(--shadow);
+        position: relative;
+        overflow: hidden;
+      }
+      .kpi .lbl {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .kpi .lbl i {
+        width: 8px;
+        height: 8px;
+        border-radius: 3px;
+        background: var(--c, var(--primary));
+      }
+      .kpi .val {
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin: 8px 0 4px;
+        font-variant-numeric: tabular-nums;
+      }
+      .kpi .sub {
+        font-size: 12px;
+        color: var(--muted);
+        min-height: 17px;
+      }
+      .kpi .meter {
+        height: 6px;
+        border-radius: 99px;
+        background: var(--surface-2);
+        margin-top: 10px;
+        overflow: hidden;
+      }
+      .kpi .meter b {
+        display: block;
+        height: 100%;
+        border-radius: 99px;
+        background: var(--c, var(--primary));
+        transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .kpi.hero {
+        background: linear-gradient(135deg, #3b6cf6 0%, #7b5cf0 100%);
+        border: 0;
+        color: #fff;
+      }
+      .kpi.hero .lbl,
+      .kpi.hero .sub {
+        color: rgba(255, 255, 255, 0.82);
+      }
+      .kpi.hero .lbl i {
+        background: #fff;
+      }
 
-  /* Grade de cartões */
-  .grid { display:grid; grid-template-columns:repeat(12,1fr); gap:16px; margin-bottom:16px; }
-  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; box-shadow:var(--shadow); min-width:0; }
-  .c4 { grid-column:span 4; } .c6 { grid-column:span 6; } .c8 { grid-column:span 8; } .c12 { grid-column:span 12; }
-  .card h2 { font-size:15px; margin:0; letter-spacing:-.01em; }
-  .card .hint { font-size:12px; color:var(--muted); margin:3px 0 14px; }
-  .chart-box { position:relative; height:260px; }
-  .legend { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:8px; font-size:12px; color:var(--muted); }
-  .legend span { display:inline-flex; align-items:center; gap:6px; }
-  .legend i { width:10px; height:10px; border-radius:3px; }
+      /* Grade de cartões */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        box-shadow: var(--shadow);
+        min-width: 0;
+      }
+      .c4 {
+        grid-column: span 4;
+      }
+      .c6 {
+        grid-column: span 6;
+      }
+      .c8 {
+        grid-column: span 8;
+      }
+      .c12 {
+        grid-column: span 12;
+      }
+      .card h2 {
+        font-size: 15px;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      .card .hint {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 3px 0 14px;
+      }
+      .chart-box {
+        position: relative;
+        height: 260px;
+      }
+      .legend {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend i {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+      }
 
-  .maq { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:14px; }
-  .maq div { background:var(--surface-2); border-radius:12px; padding:10px 12px; font-size:12px; color:var(--muted); }
-  .maq strong { display:block; color:var(--text); font-size:13px; margin-bottom:4px; }
-  .maq b { color:var(--text); }
+      .maq {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .maq div {
+        background: var(--surface-2);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .maq strong {
+        display: block;
+        color: var(--text);
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+      .maq b {
+        color: var(--text);
+      }
 
-  /* Tabelas */
-  .tbl-wrap { overflow:auto; border-radius:12px; }
-  table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
-  th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:600; padding:10px 12px; border-bottom:1px solid var(--line); background:var(--surface); position:sticky; top:0; }
-  td { padding:11px 12px; border-bottom:1px solid var(--line); }
-  tbody tr:last-child td { border-bottom:0; }
-  tr.ciclo { cursor:pointer; transition:background .12s; }
-  tr.ciclo:hover { background:var(--surface-2); }
-  tr.ciclo.sel { background:var(--primary-soft); }
-  tr.det > td { background:var(--surface-2); padding:16px 18px; }
-  tr.det table { background:var(--surface); border-radius:10px; overflow:hidden; }
-  .scroll { max-height:300px; overflow:auto; }
-  .muted { color:var(--muted); }
-  .num { font-weight:600; }
+      /* Tabelas */
+      .tbl-wrap {
+        overflow: auto;
+        border-radius: 12px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      th {
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        font-weight: 600;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+        position: sticky;
+        top: 0;
+      }
+      td {
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+      tr.ciclo {
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      tr.ciclo:hover {
+        background: var(--surface-2);
+      }
+      tr.ciclo.sel {
+        background: var(--primary-soft);
+      }
+      tr.det > td {
+        background: var(--surface-2);
+        padding: 16px 18px;
+      }
+      tr.det table {
+        background: var(--surface);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .scroll {
+        max-height: 300px;
+        overflow: auto;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .num {
+        font-weight: 600;
+      }
 
-  .tag { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:600; }
-  .tag::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
-  .tag.ok { background:var(--good-soft); color:var(--good); }
-  .tag.and { background:var(--warn-soft); color:var(--warn); }
-  .tag.forc { background:var(--bad-soft); color:var(--bad); }
-  .turno { display:inline-flex; align-items:center; gap:6px; }
-  .turno i { width:8px; height:8px; border-radius:50%; }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        border-radius: 99px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .tag::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .tag.ok {
+        background: var(--good-soft);
+        color: var(--good);
+      }
+      .tag.and {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+      .tag.forc {
+        background: var(--bad-soft);
+        color: var(--bad);
+      }
+      .turno {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .turno i {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
 
-  .stagebar { display:flex; height:10px; border-radius:99px; overflow:hidden; background:var(--surface-2); min-width:140px; gap:2px; }
-  .stagebar b { display:block; height:100%; }
-  .stagebar.big { height:16px; margin-bottom:14px; }
-  .pills { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-  .pills span { background:var(--surface); border:1px solid var(--line); border-radius:99px; padding:4px 12px; font-size:12px; color:var(--muted); }
-  .pills b { color:var(--text); }
+      .stagebar {
+        display: flex;
+        height: 10px;
+        border-radius: 99px;
+        overflow: hidden;
+        background: var(--surface-2);
+        min-width: 140px;
+        gap: 2px;
+      }
+      .stagebar b {
+        display: block;
+        height: 100%;
+      }
+      .stagebar.big {
+        height: 16px;
+        margin-bottom: 14px;
+      }
+      .pills {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+      .pills span {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 99px;
+        padding: 4px 12px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .pills b {
+        color: var(--text);
+      }
 
-  /* Carregamento */
-  .skel .kpi .val, .skel .kpi .sub { background:linear-gradient(90deg,var(--surface-2),var(--line),var(--surface-2)); background-size:200% 100%; animation:sh 1.2s infinite; color:transparent; border-radius:8px; }
-  @keyframes sh { to { background-position:-200% 0; } }
-  .empty { text-align:center; color:var(--muted); padding:28px 12px; }
+      /* Carregamento */
+      .skel .kpi .val,
+      .skel .kpi .sub {
+        background: linear-gradient(
+          90deg,
+          var(--surface-2),
+          var(--line),
+          var(--surface-2)
+        );
+        background-size: 200% 100%;
+        animation: sh 1.2s infinite;
+        color: transparent;
+        border-radius: 8px;
+      }
+      @keyframes sh {
+        to {
+          background-position: -200% 0;
+        }
+      }
+      .empty {
+        text-align: center;
+        color: var(--muted);
+        padding: 28px 12px;
+      }
 
-  @media (max-width:1200px){ .kpis{ grid-template-columns:repeat(3,1fr); } .c4{ grid-column:span 6; } .c8{ grid-column:span 12; } }
-  @media (max-width:760px){ .wrap{ padding:0 14px; } .kpis{ grid-template-columns:repeat(2,1fr); } .c4,.c6,.c8{ grid-column:span 12; } .kpi .val{ font-size:24px; } }
-</style>
-</head>
-<body>
-<div class="top">
-  <div class="wrap">
-    <div class="brand">
-      <div class="logo">V</div>
-      <div><h1>Dashboard de Produção</h1><p><span class="dot load" id="status"></span><span id="statusTxt">Carregando…</span></p></div>
-    </div>
-    <div class="controls">
-      <div class="pill"><input type="date" id="di" value="{{ hoje }}" aria-label="Data inicial"><span class="sep">→</span><input type="date" id="df" value="{{ hoje }}" aria-label="Data final"></div>
-      <button class="chip" data-rapido="1">Hoje</button>
-      <button class="chip" data-rapido="7">7 dias</button>
-      <button class="chip" data-rapido="30">30 dias</button>
-      <div class="seg" id="seg" role="group" aria-label="Turno">
-        <button data-t="todos" class="on">Todos</button>
-        <button data-t="1º turno">1º turno</button>
-        <button data-t="2º turno">2º turno</button>
+      @media (max-width: 1200px) {
+        .kpis {
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .c4 {
+          grid-column: span 6;
+        }
+        .c8 {
+          grid-column: span 12;
+        }
+      }
+      @media (max-width: 760px) {
+        .wrap {
+          padding: 0 14px;
+        }
+        .kpis {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .c4,
+        .c6,
+        .c8 {
+          grid-column: span 12;
+        }
+        .kpi .val {
+          font-size: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <div class="wrap">
+        <div class="brand">
+          <div class="logo">
+            <img
+              src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAABcCAYAAADH2p/dAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyZpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDkuMS1jMDAzIDc5Ljk2OTBhODdmYywgMjAyNS8wMy8wNi0yMDo1MDoxNiAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDI3LjEgKFdpbmRvd3MpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOkMyOTBFREU1RjI0NDExRjA5QjQ4OUM0NkU2MTkxREY3IiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOkMyOTBFREU2RjI0NDExRjA5QjQ4OUM0NkU2MTkxREY3Ij4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6QzI5MEVERTNGMjQ0MTFGMDlCNDg5QzQ2RTYxOTFERjciIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6QzI5MEVERTRGMjQ0MTFGMDlCNDg5QzQ2RTYxOTFERjciLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz5NloGAAABCdUlEQVR42ux9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"
+              alt="Logo"
+              class="logo"
+            />
+          </div>
+          <div>
+            <h1>Dashboard de Produção</h1>
+            <p>
+              <span class="dot load" id="status"></span
+              ><span id="statusTxt">Carregando…</span>
+            </p>
+          </div>
+        </div>
+        <div class="controls">
+          <div class="pill">
+            <input
+              type="date"
+              id="di"
+              value="{{ hoje }}"
+              aria-label="Data inicial"
+            /><span class="sep">→</span
+            ><input
+              type="date"
+              id="df"
+              value="{{ hoje }}"
+              aria-label="Data final"
+            />
+          </div>
+          <button class="chip" data-rapido="1">Hoje</button>
+          <button class="chip" data-rapido="7">7 dias</button>
+          <button class="chip" data-rapido="30">30 dias</button>
+          <div class="seg" id="seg" role="group" aria-label="Turno">
+            <button data-t="todos" class="on">Todos</button>
+            <button data-t="1º turno">1º turno</button>
+            <button data-t="2º turno">2º turno</button>
+          </div>
+          <button class="btn" id="atualizar">Atualizar</button>
+          <button
+            class="icon-btn"
+            id="tema"
+            title="Alternar tema claro/escuro"
+            aria-label="Alternar tema"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <button class="btn" id="atualizar">Atualizar</button>
-      <button class="icon-btn" id="tema" title="Alternar tema claro/escuro" aria-label="Alternar tema">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-      </button>
     </div>
-  </div>
-</div>
 
-<main class="wrap" id="app">
-  <div id="aviso"></div>
-  <details class="info" id="jornada"><summary>Como os tempos são calculados</summary><p id="jornadaTxt"></p></details>
+    <main class="wrap" id="app">
+      <div id="aviso"></div>
+      <details class="info" id="jornada">
+        <summary>Como os tempos são calculados</summary>
+        <p id="jornadaTxt"></p>
+      </details>
 
-  <section class="kpis skel" id="kpis"></section>
+      <section class="kpis skel" id="kpis"></section>
 
-  <section class="grid">
-    <div class="card c4"><h2>Produção por dia</h2><p class="hint">Vigas concluídas por dia produtivo e turno.</p><div class="chart-box"><canvas id="cProd"></canvas></div></div>
-    <div class="card c8"><h2>Duração de cada ciclo</h2><p class="hint">Tempo produtivo. Clique em uma barra para abrir o ciclo na tabela. Linha tracejada = média.</p>
-      <div class="legend" id="legCiclos"></div><div class="chart-box"><canvas id="cCiclos"></canvas></div></div>
-    <div class="card c4"><h2>Tempo médio por etapa</h2><p class="hint">Etapas medidas (20 a 50). Estimadas e forçadas ficam de fora.</p><div class="chart-box"><canvas id="cEtapas"></canvas></div></div>
-    <div class="card c4"><h2>Arco aberto por máquina</h2><p class="hint">Dentro dos ciclos filtrados.</p><div class="chart-box" style="height:200px"><canvas id="cArco"></canvas></div><div class="maq" id="maq"></div></div>
-    <div class="card c4"><h2>Tempo ocioso entre ciclos</h2><p class="hint">Só dentro dos turnos e fora das refeições.</p><div class="chart-box"><canvas id="cOcioso"></canvas></div></div>
-    <div class="card c6"><h2>Maiores paradas</h2><p class="hint">Ociosidade entre ciclos consecutivos.</p><div class="scroll" id="paradas"></div></div>
-    <div class="card c6"><h2>Lacunas de dados</h2><p class="hint">Falta de leituras (sensor/rede). Não são paradas de produção.</p><div class="scroll" id="lacunas"></div></div>
-  </section>
+      <section class="grid">
+        <div class="card c4">
+          <h2>Produção por dia</h2>
+          <p class="hint">Vigas concluídas por dia produtivo e turno.</p>
+          <div class="chart-box"><canvas id="cProd"></canvas></div>
+        </div>
+        <div class="card c8">
+          <h2>Duração de cada ciclo</h2>
+          <p class="hint">
+            Tempo produtivo. Clique em uma barra para abrir o ciclo na tabela.
+            Linha tracejada = média.
+          </p>
+          <div class="legend" id="legCiclos"></div>
+          <div class="chart-box"><canvas id="cCiclos"></canvas></div>
+        </div>
+        <div class="card c4">
+          <h2>Tempo médio por etapa</h2>
+          <p class="hint">
+            Etapas medidas (20 a 50). Estimadas e forçadas ficam de fora.
+          </p>
+          <div class="chart-box"><canvas id="cEtapas"></canvas></div>
+        </div>
+        <div class="card c4">
+          <h2>Arco aberto por máquina</h2>
+          <p class="hint">Dentro dos ciclos filtrados.</p>
+          <div class="chart-box" style="height: 200px">
+            <canvas id="cArco"></canvas>
+          </div>
+          <div class="maq" id="maq"></div>
+        </div>
+        <div class="card c4">
+          <h2>Tempo ocioso entre ciclos</h2>
+          <p class="hint">Só dentro dos turnos e fora das refeições.</p>
+          <div class="chart-box"><canvas id="cOcioso"></canvas></div>
+        </div>
+        <div class="card c6">
+          <h2>Maiores paradas</h2>
+          <p class="hint">Ociosidade entre ciclos consecutivos.</p>
+          <div class="scroll" id="paradas"></div>
+        </div>
+        <div class="card c6">
+          <h2>Lacunas de dados</h2>
+          <p class="hint">
+            Falta de leituras (sensor/rede). Não são paradas de produção.
+          </p>
+          <div class="scroll" id="lacunas"></div>
+        </div>
+      </section>
 
-  <section class="card">
-    <h2>Ciclos</h2><p class="hint">Clique em uma linha para ver as etapas e o arco por máquina.</p>
-    <div class="legend" id="legEtapas"></div>
-    <div class="tbl-wrap"><table id="tabela"></table></div>
-  </section>
-</main>
+      <section class="card">
+        <h2>Ciclos</h2>
+        <p class="hint">
+          Clique em uma linha para ver as etapas e o arco por máquina.
+        </p>
+        <div class="legend" id="legEtapas"></div>
+        <div class="tbl-wrap"><table id="tabela"></table></div>
+      </section>
+    </main>
 
-<script>
-const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-const corTurno = (t) => css({"1º turno":"--t1","2º turno":"--t2"}[t] || "--t3");
-const NOME_ETAPA = {10:"Posicionamento",20:"Solda plana",30:"Vertical 1",40:"Vertical 2",50:"Limpeza",60:"Finalização"};
+    <script>
+      const $ = (s) => document.querySelector(s);
+      const esc = (s) =>
+        String(s ?? "").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      const css = (v) =>
+        getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+      const corTurno = (t) =>
+        css({ "1º turno": "--t1", "2º turno": "--t2" }[t] || "--t3");
+      const NOME_ETAPA = {
+        10: "Posicionamento",
+        20: "Solda plana",
+        30: "Vertical 1",
+        40: "Vertical 2",
+        50: "Limpeza",
+        60: "Finalização",
+      };
 
-let DADOS = null, TURNO = "todos", charts = {}, selecionado = null;
+      let DADOS = null,
+        TURNO = "todos",
+        charts = {},
+        selecionado = null;
 
-const fmtDur = (s) => {
-  if (s == null) return "—";
-  s = Math.max(0, Math.round(s));
-  const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
-  const p = (n) => String(n).padStart(2,"0");
-  return h ? `${p(h)}:${p(m)}:${p(x)}` : `${p(m)}:${p(x)}`;
-};
-const fmtHora = (iso) => iso ? new Date(iso).toLocaleTimeString("pt-BR") : "—";
-const fmtHM = (iso) => iso ? new Date(iso).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) : "—";
-const fmtDH = (iso) => iso ? new Date(iso).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "—";
-const fmtDia = (iso) => { const [y,m,d] = iso.split("-"); return `${d}/${m}`; };
-const min = (s) => +(s/60).toFixed(1);
-const media = (a) => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
-const descontado = (bruto, prod) => (bruto != null && bruto - prod >= 60) ? ` <span class="muted" title="Tempo bruto; o excedente é horário fora de turno ou pausa">(bruto ${fmtDur(bruto)})</span>` : "";
+      const fmtDur = (s) => {
+        if (s == null) return "—";
+        s = Math.max(0, Math.round(s));
+        const h = Math.floor(s / 3600),
+          m = Math.floor((s % 3600) / 60),
+          x = s % 60;
+        const p = (n) => String(n).padStart(2, "0");
+        return h ? `${p(h)}:${p(m)}:${p(x)}` : `${p(m)}:${p(x)}`;
+      };
+      const fmtHora = (iso) =>
+        iso ? new Date(iso).toLocaleTimeString("pt-BR") : "—";
+      const fmtHM = (iso) =>
+        iso
+          ? new Date(iso).toLocaleTimeString("pt-BR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "—";
+      const fmtDH = (iso) =>
+        iso
+          ? new Date(iso).toLocaleString("pt-BR", {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })
+          : "—";
+      const fmtDia = (iso) => {
+        const [y, m, d] = iso.split("-");
+        return `${d}/${m}`;
+      };
+      const min = (s) => +(s / 60).toFixed(1);
+      const media = (a) =>
+        a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+      const descontado = (bruto, prod) =>
+        bruto != null && bruto - prod >= 60
+          ? ` <span class="muted" title="Tempo bruto; o excedente é horário fora de turno ou pausa">(bruto ${fmtDur(bruto)})</span>`
+          : "";
 
-function filtros() {
-  const ok = (x) => TURNO === "todos" || x.turno === TURNO;
-  return { ciclos: DADOS.ciclos.filter(ok), paradas: DADOS.paradas.filter(ok), disponivel: DADOS.disponivel.filter(ok) };
-}
+      function filtros() {
+        const ok = (x) => TURNO === "todos" || x.turno === TURNO;
+        return {
+          ciclos: DADOS.ciclos.filter(ok),
+          paradas: DADOS.paradas.filter(ok),
+          disponivel: DADOS.disponivel.filter(ok),
+        };
+      }
 
-function criar(id, cfg) {
-  if (charts[id]) charts[id].destroy();
-  charts[id] = new Chart($("#"+id), cfg);
-}
+      function criar(id, cfg) {
+        if (charts[id]) charts[id].destroy();
+        charts[id] = new Chart($("#" + id), cfg);
+      }
 
-function baseChart(extra = {}) {
-  const txt = css("--muted"), grid = css("--grid");
-  Chart.defaults.font.family = "Inter, system-ui, sans-serif";
-  Chart.defaults.font.size = 12;
-  Chart.defaults.color = txt;
-  const eixo = (o = {}) => ({grid:{color:grid, drawBorder:false}, border:{display:false}, ticks:{color:txt}, ...o});
-  return {
-    responsive:true, maintainAspectRatio:false,
-    layout:{padding:{left:6, right:6}},
-    animation:{duration:600, easing:"easeOutQuart"},
-    interaction:{mode:"index", intersect:false},
-    plugins:{
-      legend:{display:false},
-      tooltip:{backgroundColor:css("--tip"), titleColor:css("--tip-ink"), bodyColor:css("--tip-ink"), padding:10, cornerRadius:10, boxPadding:4, usePointStyle:true},
-      ...(extra.plugins || {}),
-    },
-    scales:{
-      x:eixo({grid:{display:false}, ...(extra.x || {})}),
-      y:eixo({beginAtZero:true, ...(extra.y || {})}),
-    },
-    ...(extra.root || {}),
-  };
-}
-const barra = (cor, extra = {}) => ({backgroundColor:cor, borderRadius:7, borderSkipped:false, maxBarThickness:34, ...extra});
+      function baseChart(extra = {}) {
+        const txt = css("--muted"),
+          grid = css("--grid");
+        Chart.defaults.font.family = "Inter, system-ui, sans-serif";
+        Chart.defaults.font.size = 12;
+        Chart.defaults.color = txt;
+        const eixo = (o = {}) => ({
+          grid: { color: grid, drawBorder: false },
+          border: { display: false },
+          ticks: { color: txt },
+          ...o,
+        });
+        return {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { left: 6, right: 6 } },
+          animation: { duration: 600, easing: "easeOutQuart" },
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: css("--tip"),
+              titleColor: css("--tip-ink"),
+              bodyColor: css("--tip-ink"),
+              padding: 10,
+              cornerRadius: 10,
+              boxPadding: 4,
+              usePointStyle: true,
+            },
+            ...(extra.plugins || {}),
+          },
+          scales: {
+            x: eixo({ grid: { display: false }, ...(extra.x || {}) }),
+            y: eixo({ beginAtZero: true, ...(extra.y || {}) }),
+          },
+          ...(extra.root || {}),
+        };
+      }
+      const barra = (cor, extra = {}) => ({
+        backgroundColor: cor,
+        borderRadius: 7,
+        borderSkipped: false,
+        maxBarThickness: 34,
+        ...extra,
+      });
 
-function render() {
-  const {ciclos, paradas, disponivel} = filtros();
-  const completos = ciclos.filter(c => c.status === "Completo");
-  const andamento = ciclos.filter(c => c.status !== "Completo");
-  const forcados = completos.filter(c => c.forcado);
-  // Só tempo produtivo (dentro do turno e sem almoço/janta); ciclos 100% fora de turno ficam de fora.
-  const produtivos = completos.filter(c => (c.duracao_prod_s || 0) > 0);
-  const duracoes = produtivos.map(c => c.duracao_prod_s);
+      function render() {
+        const { ciclos, paradas, disponivel } = filtros();
+        const completos = ciclos.filter((c) => c.status === "Completo");
+        const andamento = ciclos.filter((c) => c.status !== "Completo");
+        const forcados = completos.filter((c) => c.forcado);
+        // Só tempo produtivo (dentro do turno e sem almoço/janta); ciclos 100% fora de turno ficam de fora.
+        const produtivos = completos.filter((c) => (c.duracao_prod_s || 0) > 0);
+        const duracoes = produtivos.map((c) => c.duracao_prod_s);
 
-  const arco = {};
-  const tempoCiclos = completos.reduce((a,c) => a + (c.duracao_prod_s || 0), 0);
-  const tempoEmCiclo = ciclos.reduce((a,c) => a + (c.duracao_prod_s || 0), 0);
-  const tempoDisp = disponivel.reduce((a,d) => a + d.produtivo_s, 0);
-  for (const c of ciclos) for (const [m, v] of Object.entries(c.arco || {})) {
-    arco[m] ??= {s:0, as:0};
-    arco[m].s += v.arco_s || 0;
-    arco[m].as += (v.corrente_A || 0) * (v.arco_s || 0);
-  }
-  const arcoTotal = Object.values(arco).reduce((a,v)=>a+v.s, 0);
-  const ociosoTotal = paradas.reduce((a,p)=>a+p.duracao_s, 0);
-  const ocup = tempoDisp ? Math.min(100, tempoEmCiclo/tempoDisp*100) : null;
+        const arco = {};
+        const tempoCiclos = completos.reduce(
+          (a, c) => a + (c.duracao_prod_s || 0),
+          0,
+        );
+        const tempoEmCiclo = ciclos.reduce(
+          (a, c) => a + (c.duracao_prod_s || 0),
+          0,
+        );
+        const tempoDisp = disponivel.reduce((a, d) => a + d.produtivo_s, 0);
+        for (const c of ciclos)
+          for (const [m, v] of Object.entries(c.arco || {})) {
+            arco[m] ??= { s: 0, as: 0 };
+            arco[m].s += v.arco_s || 0;
+            arco[m].as += (v.corrente_A || 0) * (v.arco_s || 0);
+          }
+        const arcoTotal = Object.values(arco).reduce((a, v) => a + v.s, 0);
+        const ociosoTotal = paradas.reduce((a, p) => a + p.duracao_s, 0);
+        const ocup = tempoDisp
+          ? Math.min(100, (tempoEmCiclo / tempoDisp) * 100)
+          : null;
 
-  // ---------- KPIs ----------
-  const kpi = (l,v,s="",o={}) => `<div class="kpi ${o.hero?"hero":""}" style="--c:${o.cor||"var(--primary)"}"><div class="lbl"><i></i>${l}</div><div class="val">${v}</div><div class="sub">${s}</div>${o.meter!=null?`<div class="meter"><b style="width:${o.meter}%"></b></div>`:""}</div>`;
-  $("#kpis").classList.remove("skel");
-  $("#kpis").innerHTML =
-    kpi("Vigas concluídas", completos.length, andamento.length ? `${andamento.length} em andamento` : "no período", {hero:true})
-  + kpi("Tempo médio de ciclo", fmtDur(media(duracoes)), duracoes.length ? `mín ${fmtDur(Math.min(...duracoes))} · máx ${fmtDur(Math.max(...duracoes))}` : "sem ciclos", {cor:"var(--e30)"})
-  + kpi("Ocupação da linha", ocup==null ? "—" : ocup.toFixed(0)+"%", tempoDisp ? `${fmtDur(tempoEmCiclo)} de ${fmtDur(tempoDisp)} produtivas` : "sem turnos", {cor:"var(--good)", meter:ocup==null?null:ocup})
-  + kpi("Arco aberto", fmtDur(arcoTotal), tempoCiclos ? `${(arcoTotal/tempoCiclos*100).toFixed(0)}% do tempo de ciclo (máquinas somadas)` : "—", {cor:"var(--e40)"})
-  + kpi("Ocioso entre ciclos", fmtDur(ociosoTotal), paradas.length ? `${paradas.length} intervalos · média ${fmtDur(ociosoTotal/paradas.length)}` : "sem intervalos", {cor:"var(--warn)"})
-  + kpi("Fim estimado", forcados.length, forcados.length ? "ciclos encerrados pelo início do próximo" : "nenhum ciclo", {cor:"var(--bad)"});
+        // ---------- KPIs ----------
+        const kpi = (l, v, s = "", o = {}) =>
+          `<div class="kpi ${o.hero ? "hero" : ""}" style="--c:${o.cor || "var(--primary)"}"><div class="lbl"><i></i>${l}</div><div class="val">${v}</div><div class="sub">${s}</div>${o.meter != null ? `<div class="meter"><b style="width:${o.meter}%"></b></div>` : ""}</div>`;
+        $("#kpis").classList.remove("skel");
+        $("#kpis").innerHTML =
+          kpi(
+            "Vigas concluídas",
+            completos.length,
+            andamento.length
+              ? `${andamento.length} em andamento`
+              : "no período",
+            { hero: true },
+          ) +
+          kpi(
+            "Tempo médio de ciclo",
+            fmtDur(media(duracoes)),
+            duracoes.length
+              ? `mín ${fmtDur(Math.min(...duracoes))} · máx ${fmtDur(Math.max(...duracoes))}`
+              : "sem ciclos",
+            { cor: "var(--e30)" },
+          ) +
+          kpi(
+            "Ocupação da linha",
+            ocup == null ? "—" : ocup.toFixed(0) + "%",
+            tempoDisp
+              ? `${fmtDur(tempoEmCiclo)} de ${fmtDur(tempoDisp)} produtivas`
+              : "sem turnos",
+            { cor: "var(--good)", meter: ocup == null ? null : ocup },
+          ) +
+          kpi(
+            "Arco aberto",
+            fmtDur(arcoTotal),
+            tempoCiclos
+              ? `${((arcoTotal / tempoCiclos) * 100).toFixed(0)}% do tempo de ciclo (máquinas somadas)`
+              : "—",
+            { cor: "var(--e40)" },
+          ) +
+          kpi(
+            "Ocioso entre ciclos",
+            fmtDur(ociosoTotal),
+            paradas.length
+              ? `${paradas.length} intervalos · média ${fmtDur(ociosoTotal / paradas.length)}`
+              : "sem intervalos",
+            { cor: "var(--warn)" },
+          ) +
+          kpi(
+            "Fim estimado",
+            forcados.length,
+            forcados.length
+              ? "ciclos encerrados pelo início do próximo"
+              : "nenhum ciclo",
+            { cor: "var(--bad)" },
+          );
 
-  // ---------- 1) Produção por dia/turno ----------
-  const dias = [...new Set(DADOS.ciclos.map(c=>c.dia))].sort();
-  const turnos = [...new Set(ciclos.map(c=>c.turno))].sort();
-  criar("cProd", {type:"bar",
-    data:{labels:dias.map(fmtDia), datasets: turnos.map(t => ({label:t, ...barra(corTurno(t)),
-      data:dias.map(d => completos.filter(c=>c.dia===d && c.turno===t).length)}))},
-    options:baseChart({x:{stacked:true}, y:{stacked:true, ticks:{precision:0}},
-      plugins:{legend:{display:true, position:"bottom", labels:{usePointStyle:true, boxWidth:8, boxHeight:8, color:css("--muted")}}}})});
+        // ---------- 1) Produção por dia/turno ----------
+        const dias = [...new Set(DADOS.ciclos.map((c) => c.dia))].sort();
+        const turnos = [...new Set(ciclos.map((c) => c.turno))].sort();
+        criar("cProd", {
+          type: "bar",
+          data: {
+            labels: dias.map(fmtDia),
+            datasets: turnos.map((t) => ({
+              label: t,
+              ...barra(corTurno(t)),
+              data: dias.map(
+                (d) =>
+                  completos.filter((c) => c.dia === d && c.turno === t).length,
+              ),
+            })),
+          },
+          options: baseChart({
+            x: { stacked: true },
+            y: { stacked: true, ticks: { precision: 0 } },
+            plugins: {
+              legend: {
+                display: true,
+                position: "bottom",
+                labels: {
+                  usePointStyle: true,
+                  boxWidth: 8,
+                  boxHeight: 8,
+                  color: css("--muted"),
+                },
+              },
+            },
+          }),
+        });
 
-  // ---------- 2) Duração dos ciclos ----------
-  const mediaDur = media(duracoes);
-  $("#legCiclos").innerHTML = ["1º turno","2º turno"].map(t=>`<span><i style="background:${corTurno(t)}"></i>${t}</span>`).join("")
-    + `<span><i style="background:${css("--warn")}"></i>Fim estimado</span>`;
-  criar("cCiclos", {type:"bar",
-    data:{labels:produtivos.map(c=>`#${c.numero}`), datasets:[
-      {label:"Duração produtiva (min)", data:produtivos.map(c=>min(c.duracao_prod_s)),
-       ...barra(produtivos.map(c => c.forcado ? css("--warn") : corTurno(c.turno)))},
-      {type:"line", label:"Média", data:produtivos.map(()=>mediaDur?min(mediaDur):null), borderColor:css("--bad"), borderDash:[6,5], borderWidth:2, pointRadius:0, fill:false}]},
-    options:baseChart({y:{title:{display:true,text:"min",color:css("--muted")}},
-      plugins:{tooltip:{backgroundColor:css("--tip"), titleColor:css("--tip-ink"), bodyColor:css("--tip-ink"), padding:10, cornerRadius:10,
-        callbacks:{afterLabel:(i)=>{const c=produtivos[i.dataIndex]; return c?`${fmtDH(c.inicio)} · ${c.turno}${c.forcado?" · fim estimado":""}${c.duracao_s-c.duracao_prod_s>=60?` · bruto ${fmtDur(c.duracao_s)}`:""}`:""}}}},
-      root:{onClick:(e,els)=>{ if(els.length && els[0].datasetIndex===0) abrirCiclo(produtivos[els[0].index].numero); },
-            onHover:(e,els)=>{ e.native.target.style.cursor = els.length ? "pointer" : "default"; }}})});
+        // ---------- 2) Duração dos ciclos ----------
+        const mediaDur = media(duracoes);
+        $("#legCiclos").innerHTML =
+          ["1º turno", "2º turno"]
+            .map(
+              (t) =>
+                `<span><i style="background:${corTurno(t)}"></i>${t}</span>`,
+            )
+            .join("") +
+          `<span><i style="background:${css("--warn")}"></i>Fim estimado</span>`;
+        criar("cCiclos", {
+          type: "bar",
+          data: {
+            labels: produtivos.map((c) => `#${c.numero}`),
+            datasets: [
+              {
+                label: "Duração produtiva (min)",
+                data: produtivos.map((c) => min(c.duracao_prod_s)),
+                ...barra(
+                  produtivos.map((c) =>
+                    c.forcado ? css("--warn") : corTurno(c.turno),
+                  ),
+                ),
+              },
+              {
+                type: "line",
+                label: "Média",
+                data: produtivos.map(() => (mediaDur ? min(mediaDur) : null)),
+                borderColor: css("--bad"),
+                borderDash: [6, 5],
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false,
+              },
+            ],
+          },
+          options: baseChart({
+            y: { title: { display: true, text: "min", color: css("--muted") } },
+            plugins: {
+              tooltip: {
+                backgroundColor: css("--tip"),
+                titleColor: css("--tip-ink"),
+                bodyColor: css("--tip-ink"),
+                padding: 10,
+                cornerRadius: 10,
+                callbacks: {
+                  afterLabel: (i) => {
+                    const c = produtivos[i.dataIndex];
+                    return c
+                      ? `${fmtDH(c.inicio)} · ${c.turno}${c.forcado ? " · fim estimado" : ""}${c.duracao_s - c.duracao_prod_s >= 60 ? ` · bruto ${fmtDur(c.duracao_s)}` : ""}`
+                      : "";
+                  },
+                },
+              },
+            },
+            root: {
+              onClick: (e, els) => {
+                if (els.length && els[0].datasetIndex === 0)
+                  abrirCiclo(produtivos[els[0].index].numero);
+              },
+              onHover: (e, els) => {
+                e.native.target.style.cursor = els.length
+                  ? "pointer"
+                  : "default";
+              },
+            },
+          }),
+        });
 
-  // ---------- 3) Etapas ----------
-  const stats = {};
-  for (const c of completos) for (const e of c.etapas)
-    if (e.presente && !e.estimada && e.duracao_prod_s > 0 && [20,30,40,50].includes(e.cod))
-      (stats[e.cod] ??= []).push(e.duracao_prod_s);
-  const cods = Object.keys(stats).sort();
-  criar("cEtapas", {type:"bar",
-    data:{labels:cods.map(k=>`${k} · ${NOME_ETAPA[k]}`), datasets:[{label:"Média (min)", ...barra(cods.map(k=>css(`--e${k}`)), {maxBarThickness:26}),
-      data:cods.map(k=>min(media(stats[k])))}]},
-    options:baseChart({root:{indexAxis:"y"}, x:{grid:{color:css("--grid")}}, y:{grid:{display:false}},
-      plugins:{tooltip:{backgroundColor:css("--tip"), titleColor:css("--tip-ink"), bodyColor:css("--tip-ink"), padding:10, cornerRadius:10,
-        callbacks:{afterLabel:(i)=>{const a=stats[cods[i.dataIndex]]; return `mín ${fmtDur(Math.min(...a))} · máx ${fmtDur(Math.max(...a))} · n=${a.length}`}}}}})});
+        // ---------- 3) Etapas ----------
+        const stats = {};
+        for (const c of completos)
+          for (const e of c.etapas)
+            if (
+              e.presente &&
+              !e.estimada &&
+              e.duracao_prod_s > 0 &&
+              [20, 30, 40, 50].includes(e.cod)
+            )
+              (stats[e.cod] ??= []).push(e.duracao_prod_s);
+        const cods = Object.keys(stats).sort();
+        criar("cEtapas", {
+          type: "bar",
+          data: {
+            labels: cods.map((k) => `${k} · ${NOME_ETAPA[k]}`),
+            datasets: [
+              {
+                label: "Média (min)",
+                ...barra(
+                  cods.map((k) => css(`--e${k}`)),
+                  { maxBarThickness: 26 },
+                ),
+                data: cods.map((k) => min(media(stats[k]))),
+              },
+            ],
+          },
+          options: baseChart({
+            root: { indexAxis: "y" },
+            x: { grid: { color: css("--grid") } },
+            y: { grid: { display: false } },
+            plugins: {
+              tooltip: {
+                backgroundColor: css("--tip"),
+                titleColor: css("--tip-ink"),
+                bodyColor: css("--tip-ink"),
+                padding: 10,
+                cornerRadius: 10,
+                callbacks: {
+                  afterLabel: (i) => {
+                    const a = stats[cods[i.dataIndex]];
+                    return `mín ${fmtDur(Math.min(...a))} · máx ${fmtDur(Math.max(...a))} · n=${a.length}`;
+                  },
+                },
+              },
+            },
+          }),
+        });
 
-  // ---------- 4) Arco por máquina ----------
-  const maqs = Object.keys(arco).sort();
-  criar("cArco", {type:"bar",
-    data:{labels:maqs.map(m=>m.replace("VigaHTT_","")), datasets:[{label:"Arco aberto (min)", ...barra([css("--e40"), css("--e60")], {maxBarThickness:56}), data:maqs.map(m=>min(arco[m].s))}]},
-    options:baseChart({y:{title:{display:true,text:"min",color:css("--muted")}}})});
-  $("#maq").innerHTML = maqs.map(m => {
-    const a = arco[m], cor = a.s ? a.as/a.s : null;
-    return `<div><strong>${esc(m.replace("VigaHTT_",""))}</strong>Utilização <b>${tempoCiclos?(a.s/tempoCiclos*100).toFixed(0):"—"}%</b><br>Corrente média <b>${cor?cor.toFixed(0)+" A":"—"}</b></div>`;
-  }).join("") || `<div class="empty">Sem dados de soldagem nos ciclos.</div>`;
+        // ---------- 4) Arco por máquina ----------
+        const maqs = Object.keys(arco).sort();
+        criar("cArco", {
+          type: "bar",
+          data: {
+            labels: maqs.map((m) => m.replace("VigaHTT_", "")),
+            datasets: [
+              {
+                label: "Arco aberto (min)",
+                ...barra([css("--e40"), css("--e60")], { maxBarThickness: 56 }),
+                data: maqs.map((m) => min(arco[m].s)),
+              },
+            ],
+          },
+          options: baseChart({
+            y: { title: { display: true, text: "min", color: css("--muted") } },
+          }),
+        });
+        $("#maq").innerHTML =
+          maqs
+            .map((m) => {
+              const a = arco[m],
+                cor = a.s ? a.as / a.s : null;
+              return `<div><strong>${esc(m.replace("VigaHTT_", ""))}</strong>Utilização <b>${tempoCiclos ? ((a.s / tempoCiclos) * 100).toFixed(0) : "—"}%</b><br>Corrente média <b>${cor ? cor.toFixed(0) + " A" : "—"}</b></div>`;
+            })
+            .join("") ||
+          `<div class="empty">Sem dados de soldagem nos ciclos.</div>`;
 
-  // ---------- 5) Ocioso por dia/turno ----------
-  const diasP = [...new Set(DADOS.paradas.map(p=>p.dia))].sort();
-  const turnosP = [...new Set(paradas.map(p=>p.turno))].sort();
-  criar("cOcioso", {type:"bar",
-    data:{labels:diasP.map(fmtDia), datasets:turnosP.map(t=>({label:t, ...barra(corTurno(t)),
-      data:diasP.map(d=>min(paradas.filter(p=>p.dia===d&&p.turno===t).reduce((a,p)=>a+p.duracao_s,0)))}))},
-    options:baseChart({x:{stacked:true}, y:{stacked:true, title:{display:true,text:"min",color:css("--muted")}},
-      plugins:{legend:{display:true, position:"bottom", labels:{usePointStyle:true, boxWidth:8, boxHeight:8, color:css("--muted")}}}})});
+        // ---------- 5) Ocioso por dia/turno ----------
+        const diasP = [...new Set(DADOS.paradas.map((p) => p.dia))].sort();
+        const turnosP = [...new Set(paradas.map((p) => p.turno))].sort();
+        criar("cOcioso", {
+          type: "bar",
+          data: {
+            labels: diasP.map(fmtDia),
+            datasets: turnosP.map((t) => ({
+              label: t,
+              ...barra(corTurno(t)),
+              data: diasP.map((d) =>
+                min(
+                  paradas
+                    .filter((p) => p.dia === d && p.turno === t)
+                    .reduce((a, p) => a + p.duracao_s, 0),
+                ),
+              ),
+            })),
+          },
+          options: baseChart({
+            x: { stacked: true },
+            y: {
+              stacked: true,
+              title: { display: true, text: "min", color: css("--muted") },
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: "bottom",
+                labels: {
+                  usePointStyle: true,
+                  boxWidth: 8,
+                  boxHeight: 8,
+                  color: css("--muted"),
+                },
+              },
+            },
+          }),
+        });
 
-  // ---------- 6) Paradas e lacunas ----------
-  const top = [...paradas].sort((a,b)=>b.duracao_s-a.duracao_s).slice(0,8);
-  const lac = [...DADOS.lacunas_dados].sort((a,b)=>b.duracao_s-a.duracao_s).slice(0,8);
-  $("#paradas").innerHTML = `<table><thead><tr><th>Entre ciclos</th><th>Início</th><th>Fim</th><th>Duração</th></tr></thead><tbody>` +
-    (top.map(p=>`<tr><td><b>#${p.entre[0]}</b> → <b>#${p.entre[1]}</b> <span class="turno muted"><i style="background:${corTurno(p.turno)}"></i>${esc(p.turno)}</span></td><td>${fmtHM(p.inicio)}</td><td>${fmtHM(p.fim)}</td><td class="num">${fmtDur(p.duracao_s)}</td></tr>`).join("")
-      || `<tr><td colspan="4" class="empty">Nenhuma parada no período.</td></tr>`) + `</tbody></table>`;
-  $("#lacunas").innerHTML = `<table><thead><tr><th>Fonte</th><th>Início</th><th>Fim</th><th>Duração</th></tr></thead><tbody>` +
-    (lac.map(l=>`<tr><td>${esc(l.fonte)}</td><td>${fmtDH(l.inicio)}</td><td>${fmtHM(l.fim)}</td><td class="num">${fmtDur(l.duracao_s)}</td></tr>`).join("")
-      || `<tr><td colspan="4" class="empty">Sem lacunas.</td></tr>`) + `</tbody></table>`;
+        // ---------- 6) Paradas e lacunas ----------
+        const top = [...paradas]
+          .sort((a, b) => b.duracao_s - a.duracao_s)
+          .slice(0, 8);
+        const lac = [...DADOS.lacunas_dados]
+          .sort((a, b) => b.duracao_s - a.duracao_s)
+          .slice(0, 8);
+        $("#paradas").innerHTML =
+          `<table><thead><tr><th>Entre ciclos</th><th>Início</th><th>Fim</th><th>Duração</th></tr></thead><tbody>` +
+          (top
+            .map(
+              (p) =>
+                `<tr><td><b>#${p.entre[0]}</b> → <b>#${p.entre[1]}</b> <span class="turno muted"><i style="background:${corTurno(p.turno)}"></i>${esc(p.turno)}</span></td><td>${fmtHM(p.inicio)}</td><td>${fmtHM(p.fim)}</td><td class="num">${fmtDur(p.duracao_s)}</td></tr>`,
+            )
+            .join("") ||
+            `<tr><td colspan="4" class="empty">Nenhuma parada no período.</td></tr>`) +
+          `</tbody></table>`;
+        $("#lacunas").innerHTML =
+          `<table><thead><tr><th>Fonte</th><th>Início</th><th>Fim</th><th>Duração</th></tr></thead><tbody>` +
+          (lac
+            .map(
+              (l) =>
+                `<tr><td>${esc(l.fonte)}</td><td>${fmtDH(l.inicio)}</td><td>${fmtHM(l.fim)}</td><td class="num">${fmtDur(l.duracao_s)}</td></tr>`,
+            )
+            .join("") ||
+            `<tr><td colspan="4" class="empty">Sem lacunas.</td></tr>`) +
+          `</tbody></table>`;
 
-  // ---------- Tabela de ciclos ----------
-  $("#legEtapas").innerHTML = [20,30,40,50,60].map(k=>`<span><i style="background:${css(`--e${k}`)}"></i>${k} · ${NOME_ETAPA[k]}</span>`).join("");
-  const barraEtapas = (c, big) => {
-    const seg = c.etapas.filter(e => e.presente && e.cod !== 10 && (e.duracao_prod_s||0) > 0);
-    const tot = seg.reduce((a,e)=>a+e.duracao_prod_s,0);
-    if (!tot) return `<span class="muted">—</span>`;
-    return `<div class="stagebar ${big?"big":""}">` + seg.map(e=>`<b style="width:${e.duracao_prod_s/tot*100}%;background:${css(`--e${e.cod}`)}" title="${e.cod} · ${esc(NOME_ETAPA[e.cod])}: ${fmtDur(e.duracao_prod_s)}"></b>`).join("") + `</div>`;
-  };
-  $("#tabela").innerHTML =
-    `<thead><tr><th>#</th><th>Status</th><th>Turno</th><th>Início</th><th>Fim</th><th>Duração produtiva</th><th>Etapas</th><th>Sequência</th></tr></thead><tbody>` +
-    (ciclos.map(c => {
-      const tag = c.status !== "Completo" ? `<span class="tag and">Em andamento</span>` : (c.forcado ? `<span class="tag forc">Fim estimado</span>` : `<span class="tag ok">Completo</span>`);
-      const et = c.etapas.map(e => e.presente
-        ? `<tr><td><b>${e.cod}</b></td><td>${esc(e.nome)}</td><td>${fmtHora(e.inicio)}</td><td>${fmtHora(e.fim)}</td><td class="num">${fmtDur(e.duracao_prod_s)}${descontado(e.duracao_s, e.duracao_prod_s)}${e.estimada?' <span class="muted">(est.)</span>':''}</td><td>${e.angulo}°</td></tr>`
-        : `<tr class="muted"><td><b>${e.cod}</b></td><td>${esc(e.nome)}</td><td colspan="4">${e.cod===50?"Opcional (pulada)":"Indeterminada"}</td></tr>`).join("");
-      const arcoPills = Object.entries(c.arco||{}).map(([m,v])=>`<span>${esc(m.replace("VigaHTT_",""))}: <b>${fmtDur(v.arco_s)}</b>${v.corrente_A?` · ${v.corrente_A.toFixed(0)} A`:""}</span>`).join("");
-      return `<tr class="ciclo" data-n="${c.numero}"><td class="num">${c.numero}</td><td>${tag}</td><td><span class="turno"><i style="background:${corTurno(c.turno)}"></i>${esc(c.turno)}</span></td><td>${fmtDH(c.inicio)}</td><td>${fmtDH(c.fim)}</td><td><span class="num">${fmtDur(c.duracao_prod_s)}</span>${descontado(c.duracao_s, c.duracao_prod_s)}</td><td>${barraEtapas(c,false)}</td><td class="muted">${esc(c.sequencia)}</td></tr>`
-        + `<tr class="det" data-d="${c.numero}" hidden><td colspan="8">${barraEtapas(c,true)}<table><thead><tr><th>Etapa</th><th>Descrição</th><th>Início</th><th>Fim</th><th>Duração</th><th>Girador</th></tr></thead><tbody>${et}</tbody></table>${arcoPills?`<div class="pills">${arcoPills}</div>`:""}</td></tr>`;
-    }).join("") || `<tr><td colspan="8" class="empty">Nenhum ciclo no período.</td></tr>`) + `</tbody>`;
+        // ---------- Tabela de ciclos ----------
+        $("#legEtapas").innerHTML = [20, 30, 40, 50, 60]
+          .map(
+            (k) =>
+              `<span><i style="background:${css(`--e${k}`)}"></i>${k} · ${NOME_ETAPA[k]}</span>`,
+          )
+          .join("");
+        const barraEtapas = (c, big) => {
+          const seg = c.etapas.filter(
+            (e) => e.presente && e.cod !== 10 && (e.duracao_prod_s || 0) > 0,
+          );
+          const tot = seg.reduce((a, e) => a + e.duracao_prod_s, 0);
+          if (!tot) return `<span class="muted">—</span>`;
+          return (
+            `<div class="stagebar ${big ? "big" : ""}">` +
+            seg
+              .map(
+                (e) =>
+                  `<b style="width:${(e.duracao_prod_s / tot) * 100}%;background:${css(`--e${e.cod}`)}" title="${e.cod} · ${esc(NOME_ETAPA[e.cod])}: ${fmtDur(e.duracao_prod_s)}"></b>`,
+              )
+              .join("") +
+            `</div>`
+          );
+        };
+        $("#tabela").innerHTML =
+          `<thead><tr><th>#</th><th>Status</th><th>Turno</th><th>Início</th><th>Fim</th><th>Duração produtiva</th><th>Etapas</th><th>Sequência</th></tr></thead><tbody>` +
+          (ciclos
+            .map((c) => {
+              const tag =
+                c.status !== "Completo"
+                  ? `<span class="tag and">Em andamento</span>`
+                  : c.forcado
+                    ? `<span class="tag forc">Fim estimado</span>`
+                    : `<span class="tag ok">Completo</span>`;
+              const et = c.etapas
+                .map((e) =>
+                  e.presente
+                    ? `<tr><td><b>${e.cod}</b></td><td>${esc(e.nome)}</td><td>${fmtHora(e.inicio)}</td><td>${fmtHora(e.fim)}</td><td class="num">${fmtDur(e.duracao_prod_s)}${descontado(e.duracao_s, e.duracao_prod_s)}${e.estimada ? ' <span class="muted">(est.)</span>' : ""}</td><td>${e.angulo}°</td></tr>`
+                    : `<tr class="muted"><td><b>${e.cod}</b></td><td>${esc(e.nome)}</td><td colspan="4">${e.cod === 50 ? "Opcional (pulada)" : "Indeterminada"}</td></tr>`,
+                )
+                .join("");
+              const arcoPills = Object.entries(c.arco || {})
+                .map(
+                  ([m, v]) =>
+                    `<span>${esc(m.replace("VigaHTT_", ""))}: <b>${fmtDur(v.arco_s)}</b>${v.corrente_A ? ` · ${v.corrente_A.toFixed(0)} A` : ""}</span>`,
+                )
+                .join("");
+              return (
+                `<tr class="ciclo" data-n="${c.numero}"><td class="num">${c.numero}</td><td>${tag}</td><td><span class="turno"><i style="background:${corTurno(c.turno)}"></i>${esc(c.turno)}</span></td><td>${fmtDH(c.inicio)}</td><td>${fmtDH(c.fim)}</td><td><span class="num">${fmtDur(c.duracao_prod_s)}</span>${descontado(c.duracao_s, c.duracao_prod_s)}</td><td>${barraEtapas(c, false)}</td><td class="muted">${esc(c.sequencia)}</td></tr>` +
+                `<tr class="det" data-d="${c.numero}" hidden><td colspan="8">${barraEtapas(c, true)}<table><thead><tr><th>Etapa</th><th>Descrição</th><th>Início</th><th>Fim</th><th>Duração</th><th>Girador</th></tr></thead><tbody>${et}</tbody></table>${arcoPills ? `<div class="pills">${arcoPills}</div>` : ""}</td></tr>`
+              );
+            })
+            .join("") ||
+            `<tr><td colspan="8" class="empty">Nenhum ciclo no período.</td></tr>`) +
+          `</tbody>`;
 
-  document.querySelectorAll("tr.ciclo").forEach(tr => tr.addEventListener("click", () => abrirCiclo(+tr.dataset.n, false)));
-  if (selecionado) abrirCiclo(selecionado, false, true);
-}
+        document
+          .querySelectorAll("tr.ciclo")
+          .forEach((tr) =>
+            tr.addEventListener("click", () =>
+              abrirCiclo(+tr.dataset.n, false),
+            ),
+          );
+        if (selecionado) abrirCiclo(selecionado, false, true);
+      }
 
-function abrirCiclo(n, rolar = true, manter = false) {
-  const tr = document.querySelector(`tr.ciclo[data-n="${n}"]`);
-  const det = document.querySelector(`tr.det[data-d="${n}"]`);
-  if (!tr) return;
-  const abrir = rolar || manter ? true : det.hidden;
-  det.hidden = !abrir;
-  tr.classList.toggle("sel", abrir);
-  selecionado = abrir ? n : null;
-  if (rolar) tr.scrollIntoView({behavior:"smooth", block:"center"});
-}
+      function abrirCiclo(n, rolar = true, manter = false) {
+        const tr = document.querySelector(`tr.ciclo[data-n="${n}"]`);
+        const det = document.querySelector(`tr.det[data-d="${n}"]`);
+        if (!tr) return;
+        const abrir = rolar || manter ? true : det.hidden;
+        det.hidden = !abrir;
+        tr.classList.toggle("sel", abrir);
+        selecionado = abrir ? n : null;
+        if (rolar) tr.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
 
-function status(tipo, txt) {
-  $("#status").className = "dot" + (tipo ? " " + tipo : "");
-  $("#statusTxt").textContent = txt;
-}
+      function status(tipo, txt) {
+        $("#status").className = "dot" + (tipo ? " " + tipo : "");
+        $("#statusTxt").textContent = txt;
+      }
 
-async function carregar() {
-  const di = $("#di").value, df = $("#df").value;
-  const btn = $("#atualizar");
-  if (!di || !df) return;
-  btn.disabled = true; btn.textContent = "Carregando…";
-  status("load", "Consultando dados…");
-  $("#kpis").classList.add("skel");
-  $("#aviso").innerHTML = "";
-  try {
-    const r = await fetch(`/dashboard/api/dados?data_inicio=${di}&data_fim=${df}`);
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.erro || "Falha ao carregar.");
-    DADOS = j; selecionado = null;
-    const pausas = j.pausas.map(p => `${fmtDia(p.dia)} ${esc(p.nome)} ${fmtHM(p.inicio)}–${fmtHM(p.fim)}`).join(" · ");
-    $("#jornadaTxt").innerHTML = `Só entra nos totais o tempo dentro dos turnos (seg–qui 06:30–16:20 e 16:20–01:40; sex 06:30–14:20 e 14:20–21:40), sem finais de semana e sem as pausas de almoço e janta (1h cada; 12:00–13:00 e 19:30–20:30 por padrão, ou inferidas pelos dados quando há solda nesses horários).`
-      + (pausas ? `<br><b>Pausas consideradas:</b> ${pausas}` : "");
-    try { await document.fonts.ready; } catch (e) {}  // mede os rótulos dos gráficos já com a fonte final
-    status("", `Atualizado às ${fmtHM(j.gerado_em)} · ${fmtDH(j.periodo.inicio).slice(0,5)} a ${fmtDH(j.periodo.fim).slice(0,5)}`);
-    render();
-  } catch (e) {
-    status("err", "Falha ao carregar");
-    $("#aviso").innerHTML = `<div class="msg erro">${esc(e.message)}</div>`;
-  } finally {
-    btn.disabled = false; btn.textContent = "Atualizar";
-  }
-}
+      async function carregar() {
+        const di = $("#di").value,
+          df = $("#df").value;
+        const btn = $("#atualizar");
+        if (!di || !df) return;
+        btn.disabled = true;
+        btn.textContent = "Carregando…";
+        status("load", "Consultando dados…");
+        $("#kpis").classList.add("skel");
+        $("#aviso").innerHTML = "";
+        try {
+          const r = await fetch(
+            `/dashboard/api/dados?data_inicio=${di}&data_fim=${df}`,
+          );
+          const j = await r.json();
+          if (!r.ok) throw new Error(j.erro || "Falha ao carregar.");
+          DADOS = j;
+          selecionado = null;
+          const pausas = j.pausas
+            .map(
+              (p) =>
+                `${fmtDia(p.dia)} ${esc(p.nome)} ${fmtHM(p.inicio)}–${fmtHM(p.fim)}`,
+            )
+            .join(" · ");
+          $("#jornadaTxt").innerHTML =
+            `Só entra nos totais o tempo dentro dos turnos (seg–qui 06:30–16:20 e 16:20–01:40; sex 06:30–14:20 e 14:20–21:40), sem finais de semana e sem as pausas de almoço e janta (1h cada; 12:00–13:00 e 19:30–20:30 por padrão, ou inferidas pelos dados quando há solda nesses horários).` +
+            (pausas ? `<br><b>Pausas consideradas:</b> ${pausas}` : "");
+          try {
+            await document.fonts.ready;
+          } catch (e) {} // mede os rótulos dos gráficos já com a fonte final
+          status(
+            "",
+            `Atualizado às ${fmtHM(j.gerado_em)} · ${fmtDH(j.periodo.inicio).slice(0, 5)} a ${fmtDH(j.periodo.fim).slice(0, 5)}`,
+          );
+          render();
+        } catch (e) {
+          status("err", "Falha ao carregar");
+          $("#aviso").innerHTML =
+            `<div class="msg erro">${esc(e.message)}</div>`;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Atualizar";
+        }
+      }
 
-$("#atualizar").addEventListener("click", carregar);
-$("#di").addEventListener("change", () => { if ($("#df").value < $("#di").value) $("#df").value = $("#di").value; });
-$("#seg").addEventListener("click", (e) => {
-  const b = e.target.closest("button"); if (!b) return;
-  TURNO = b.dataset.t;
-  document.querySelectorAll("#seg button").forEach(x => x.classList.toggle("on", x === b));
-  if (DADOS) render();
-});
-document.querySelectorAll("[data-rapido]").forEach(b => b.addEventListener("click", () => {
-  const n = +b.dataset.rapido;
-  const f = new Date("{{ hoje }}T12:00:00"), i = new Date(f);
-  i.setDate(i.getDate() - (n - 1));
-  const iso = (d) => d.toISOString().slice(0,10);
-  $("#di").value = iso(i); $("#df").value = iso(f); carregar();
-}));
-$("#tema").addEventListener("click", () => {
-  const root = document.documentElement;
-  const escuro = root.getAttribute("data-theme") === "dark" ||
-    (!root.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
-  const novo = escuro ? "light" : "dark";
-  root.setAttribute("data-theme", novo);
-  try { localStorage.setItem("dash-tema", novo); } catch (e) {}
-  if (DADOS) render();   // recria os gráficos com as cores do novo tema
-});
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (DADOS) render(); });
-carregar();
-</script>
-</body>
+      $("#atualizar").addEventListener("click", carregar);
+      $("#di").addEventListener("change", () => {
+        if ($("#df").value < $("#di").value) $("#df").value = $("#di").value;
+      });
+      $("#seg").addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        TURNO = b.dataset.t;
+        document
+          .querySelectorAll("#seg button")
+          .forEach((x) => x.classList.toggle("on", x === b));
+        if (DADOS) render();
+      });
+      document.querySelectorAll("[data-rapido]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const n = +b.dataset.rapido;
+          const f = new Date("{{ hoje }}T12:00:00"),
+            i = new Date(f);
+          i.setDate(i.getDate() - (n - 1));
+          const iso = (d) => d.toISOString().slice(0, 10);
+          $("#di").value = iso(i);
+          $("#df").value = iso(f);
+          carregar();
+        }),
+      );
+      $("#tema").addEventListener("click", () => {
+        const root = document.documentElement;
+        const escuro =
+          root.getAttribute("data-theme") === "dark" ||
+          (!root.getAttribute("data-theme") &&
+            matchMedia("(prefers-color-scheme: dark)").matches);
+        const novo = escuro ? "light" : "dark";
+        root.setAttribute("data-theme", novo);
+        try {
+          localStorage.setItem("dash-tema", novo);
+        } catch (e) {}
+        if (DADOS) render(); // recria os gráficos com as cores do novo tema
+      });
+      matchMedia("(prefers-color-scheme: dark)").addEventListener(
+        "change",
+        () => {
+          if (DADOS) render();
+        },
+      );
+      carregar();
+    </script>
+  </body>
 </html>
