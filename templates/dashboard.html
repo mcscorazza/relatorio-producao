@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard de Produção</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#f1f5f9; --card:#fff; --text:#172033; --muted:#64748b; --line:#e2e8f0;
+    --primary:#155eef; --green:#16a34a; --amber:#f59e0b; --red:#dc2626;
+    --t1:#155eef; --t2:#8b5cf6; --t3:#94a3b8;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Arial,sans-serif; background:var(--bg); color:var(--text); }
+  header { background:#fff; border-bottom:1px solid var(--line); padding:14px 20px; position:sticky; top:0; z-index:5; }
+  .bar { max-width:1400px; margin:0 auto; display:flex; flex-wrap:wrap; gap:14px; align-items:end; }
+  h1 { font-size:20px; margin:0 auto 0 0; }
+  .field label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; font-weight:bold; }
+  .field input, .field select { padding:8px 10px; border:1px solid #cbd5e1; border-radius:7px; font-size:14px; background:#fff; }
+  .btn { padding:9px 16px; border:0; border-radius:7px; background:var(--primary); color:#fff; font-weight:bold; cursor:pointer; }
+  .btn:hover { background:#1249bd; }
+  .btn.ghost { background:#e8eefc; color:var(--primary); }
+  .btn.ghost:hover { background:#d6e1fb; }
+  .btn:disabled { opacity:.6; cursor:wait; }
+  main { max-width:1400px; margin:0 auto; padding:18px 20px 40px; }
+  .msg { padding:12px 14px; border-radius:8px; margin-bottom:14px; }
+  .msg.erro { background:#fee2e2; color:#991b1b; }
+  .msg.info { background:#e0ecff; color:#1e3a8a; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:16px; }
+  .kpi { background:var(--card); border-radius:12px; padding:14px 16px; box-shadow:0 2px 10px #0000000d; }
+  .kpi .lbl { font-size:12px; color:var(--muted); font-weight:bold; text-transform:uppercase; letter-spacing:.03em; }
+  .kpi .val { font-size:28px; font-weight:bold; margin-top:4px; }
+  .kpi .sub { font-size:12px; color:var(--muted); margin-top:2px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:16px; margin-bottom:16px; }
+  .panel { background:var(--card); border-radius:12px; padding:16px; box-shadow:0 2px 10px #0000000d; min-width:0; }
+  .panel h2 { font-size:15px; margin:0 0 2px; }
+  .panel .hint { font-size:12px; color:var(--muted); margin:0 0 10px; }
+  .chart-box { position:relative; height:280px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; color:var(--muted); font-size:12px; padding:8px; border-bottom:2px solid var(--line); }
+  td { padding:8px; border-bottom:1px solid var(--line); }
+  tr.ciclo { cursor:pointer; }
+  tr.ciclo:hover { background:#f8fafc; }
+  tr.ciclo.sel { background:#eef4ff; }
+  tr.det td { background:#f8fafc; padding:10px 16px; }
+  tr.det table { background:#fff; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:bold; }
+  .tag.ok { background:#dcfce7; color:#166534; }
+  .tag.and { background:#fef3c7; color:#92400e; }
+  .tag.forc { background:#fee2e2; color:#991b1b; }
+  .muted { color:var(--muted); }
+  .maq { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-top:10px; }
+  .maq div { background:#f8fafc; border-radius:8px; padding:10px; font-size:13px; }
+  .maq strong { display:block; font-size:12px; color:var(--muted); }
+  .scroll { max-height:340px; overflow:auto; }
+  .seg { display:inline-flex; border:1px solid #cbd5e1; border-radius:7px; overflow:hidden; }
+  .seg button { border:0; background:#fff; padding:8px 12px; cursor:pointer; font-size:14px; }
+  .seg button.on { background:var(--primary); color:#fff; font-weight:bold; }
+  @media (max-width:520px){ .grid{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>Dashboard de Produção · Viga HTT</h1>
+    <div class="field"><label for="di">Data inicial</label><input type="date" id="di" value="{{ hoje }}"></div>
+    <div class="field"><label for="df">Data final</label><input type="date" id="df" value="{{ hoje }}"></div>
+    <div class="field"><label>Turno</label>
+      <div class="seg" id="seg">
+        <button data-t="todos" class="on">Todos</button>
+        <button data-t="1º turno">1º</button>
+        <button data-t="2º turno">2º</button>
+      </div>
+    </div>
+    <button class="btn ghost" data-rapido="1">Hoje</button>
+    <button class="btn ghost" data-rapido="7">7 dias</button>
+    <button class="btn ghost" data-rapido="30">30 dias</button>
+    <button class="btn" id="atualizar">Atualizar</button>
+  </div>
+</header>
+
+<main>
+  <div id="aviso"></div>
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid">
+    <div class="panel"><h2>Produção por dia e turno</h2><p class="hint">Vigas concluídas (ciclos completos), pelo dia produtivo.</p><div class="chart-box"><canvas id="cProd"></canvas></div></div>
+    <div class="panel"><h2>Duração de cada ciclo</h2><p class="hint">Clique em uma barra para abrir o ciclo na tabela. Linha = média.</p><div class="chart-box"><canvas id="cCiclos"></canvas></div></div>
+    <div class="panel"><h2>Tempo médio por etapa</h2><p class="hint">Etapas medidas (20, 30, 40, 50). Etapas 10 e 60 são estimadas e etapas forçadas ficam de fora.</p><div class="chart-box"><canvas id="cEtapas"></canvas></div></div>
+    <div class="panel"><h2>Arco aberto por máquina</h2><p class="hint">Dentro dos ciclos filtrados. Utilização = arco ÷ tempo de ciclo.</p><div class="chart-box"><canvas id="cArco"></canvas></div><div class="maq" id="maq"></div></div>
+    <div class="panel"><h2>Tempo ocioso entre ciclos</h2><p class="hint">Intervalo entre o fim de um ciclo e o início do próximo, por dia e turno.</p><div class="chart-box"><canvas id="cOcioso"></canvas></div></div>
+    <div class="panel"><h2>Maiores paradas e lacunas de dados</h2><p class="hint">Paradas = ociosidade entre ciclos. Lacunas = falta de leituras (sensor/rede), não são paradas.</p><div class="scroll" id="paradas"></div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Ciclos</h2><p class="hint">Clique em uma linha para ver as etapas.</p>
+    <div class="scroll" style="max-height:none"><table id="tabela"></table></div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const COR_TURNO = {"1º turno":"#155eef","2º turno":"#8b5cf6","Fora de turno":"#94a3b8"};
+
+let DADOS = null, TURNO = "todos", charts = {}, selecionado = null;
+
+const fmtDur = (s) => {
+  if (s == null) return "—";
+  s = Math.max(0, Math.round(s));
+  const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+  const p = (n) => String(n).padStart(2,"0");
+  return h ? `${p(h)}:${p(m)}:${p(x)}` : `${p(m)}:${p(x)}`;
+};
+const fmtHora = (iso) => iso ? new Date(iso).toLocaleTimeString("pt-BR") : "—";
+const fmtDH = (iso) => iso ? new Date(iso).toLocaleString("pt-BR") : "—";
+const fmtDia = (iso) => { const [y,m,d] = iso.split("-"); return `${d}/${m}`; };
+const min = (s) => +(s/60).toFixed(1);
+const media = (a) => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+
+function filtros() {
+  const ok = (x) => TURNO === "todos" || x.turno === TURNO;
+  return {
+    ciclos: DADOS.ciclos.filter(ok),
+    paradas: DADOS.paradas.filter(ok),
+  };
+}
+
+function criar(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart($("#"+id), cfg);
+}
+
+function render() {
+  const {ciclos, paradas} = filtros();
+  const completos = ciclos.filter(c => c.status === "Completo");
+  const andamento = ciclos.filter(c => c.status !== "Completo");
+  const forcados = completos.filter(c => c.forcado);
+  const duracoes = completos.map(c => c.duracao_s).filter(d => d != null);
+
+  // arco por máquina (somente dentro dos ciclos filtrados)
+  const arco = {};
+  const tempoCiclos = completos.reduce((a,c) => a + (c.duracao_s || 0), 0);
+  for (const c of ciclos) for (const [m, v] of Object.entries(c.arco || {})) {
+    arco[m] ??= {s:0, as:0};
+    arco[m].s += v.arco_s || 0;
+    arco[m].as += (v.corrente_A || 0) * (v.arco_s || 0);
+  }
+  const arcoTotal = Object.values(arco).reduce((a,v)=>a+v.s, 0);
+  const ociosoTotal = paradas.reduce((a,p)=>a+p.duracao_s, 0);
+
+  // KPIs
+  const kpi = (l,v,s="") => `<div class="kpi"><div class="lbl">${l}</div><div class="val">${v}</div><div class="sub">${s}</div></div>`;
+  $("#kpis").innerHTML =
+    kpi("Vigas concluídas", completos.length, andamento.length ? `${andamento.length} em andamento` : "")
+  + kpi("Tempo médio de ciclo", fmtDur(media(duracoes)), duracoes.length ? `mín ${fmtDur(Math.min(...duracoes))} · máx ${fmtDur(Math.max(...duracoes))}` : "")
+  + kpi("Arco aberto (total)", fmtDur(arcoTotal), tempoCiclos ? `${(arcoTotal/tempoCiclos*100).toFixed(0)}% do tempo de ciclo (somando máquinas)` : "")
+  + kpi("Ocioso entre ciclos", fmtDur(ociosoTotal), paradas.length ? `${paradas.length} intervalos · média ${fmtDur(ociosoTotal/paradas.length)}` : "sem intervalos")
+  + kpi("Ciclos com fim estimado", forcados.length, forcados.length ? "fim forçado pelo início do próximo" : "nenhum");
+
+  // 1) Produção por dia/turno
+  const dias = [...new Set([...DADOS.ciclos.map(c=>c.dia)])].sort();
+  const turnos = [...new Set(ciclos.map(c=>c.turno))].sort();
+  criar("cProd", {type:"bar",
+    data:{labels:dias.map(fmtDia), datasets: turnos.map(t => ({
+      label:t, backgroundColor:COR_TURNO[t],
+      data:dias.map(d => completos.filter(c=>c.dia===d && c.turno===t).length)}))},
+    options:{responsive:true, maintainAspectRatio:false, scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true, ticks:{precision:0}}}}});
+
+  // 2) Duração dos ciclos
+  const mediaDur = media(duracoes);
+  criar("cCiclos", {type:"bar",
+    data:{labels:completos.map(c=>`#${c.numero}`), datasets:[
+      {label:"Duração (min)", data:completos.map(c=>min(c.duracao_s||0)),
+       backgroundColor:completos.map(c => c.forcado ? "#f59e0b" : COR_TURNO[c.turno])},
+      {type:"line", label:"Média", data:completos.map(()=>mediaDur?min(mediaDur):null), borderColor:"#dc2626", borderDash:[6,4], pointRadius:0}]},
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{beginAtZero:true, title:{display:true,text:"min"}}},
+      plugins:{tooltip:{callbacks:{afterLabel:(i)=>{const c=completos[i.dataIndex]; return c?`${fmtDH(c.inicio)} · ${c.turno}${c.forcado?" · fim estimado":""}`:""}}}},
+      onClick:(e,els)=>{ if(els.length && els[0].datasetIndex===0) abrirCiclo(completos[els[0].index].numero); }}});
+
+  // 3) Etapas
+  const stats = {};
+  for (const c of completos) for (const e of c.etapas)
+    if (e.presente && !e.estimada && e.duracao_s != null && [20,30,40,50].includes(e.cod))
+      (stats[e.cod] ??= []).push(e.duracao_s);
+  const cods = Object.keys(stats).sort();
+  const nomes = {20:"20 · Solda plana",30:"30 · Vertical 1",40:"40 · Vertical 2",50:"50 · Limpeza"};
+  criar("cEtapas", {type:"bar",
+    data:{labels:cods.map(k=>nomes[k]), datasets:[{label:"Média (min)", backgroundColor:"#155eef",
+      data:cods.map(k=>min(media(stats[k])))}]},
+    options:{indexAxis:"y", responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},
+      tooltip:{callbacks:{afterLabel:(i)=>{const a=stats[cods[i.dataIndex]]; return `mín ${fmtDur(Math.min(...a))} · máx ${fmtDur(Math.max(...a))} · n=${a.length}`}}}},
+      scales:{x:{beginAtZero:true, title:{display:true,text:"min"}}}}});
+
+  // 4) Arco por máquina
+  const maqs = Object.keys(arco).sort();
+  criar("cArco", {type:"bar",
+    data:{labels:maqs, datasets:[{label:"Arco aberto (min)", backgroundColor:"#16a34a", data:maqs.map(m=>min(arco[m].s))}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,title:{display:true,text:"min"}}}}});
+  $("#maq").innerHTML = maqs.map(m => {
+    const a = arco[m], cor = a.s ? a.as/a.s : null;
+    return `<div><strong>${esc(m)}</strong>Utilização: <b>${tempoCiclos?(a.s/tempoCiclos*100).toFixed(0):"—"}%</b><br>Corrente média: <b>${cor?cor.toFixed(0)+" A":"—"}</b></div>`;
+  }).join("") || `<p class="muted">Sem dados de soldagem nos ciclos.</p>`;
+
+  // 5) Ocioso por dia/turno
+  const diasP = [...new Set(DADOS.paradas.map(p=>p.dia))].sort();
+  const turnosP = [...new Set(paradas.map(p=>p.turno))].sort();
+  criar("cOcioso", {type:"bar",
+    data:{labels:diasP.map(fmtDia), datasets:turnosP.map(t=>({label:t, backgroundColor:COR_TURNO[t],
+      data:diasP.map(d=>min(paradas.filter(p=>p.dia===d&&p.turno===t).reduce((a,p)=>a+p.duracao_s,0)))}))},
+    options:{responsive:true, maintainAspectRatio:false, scales:{x:{stacked:true}, y:{stacked:true,beginAtZero:true,title:{display:true,text:"min"}}}}});
+
+  // 6) Paradas e lacunas
+  const top = [...paradas].sort((a,b)=>b.duracao_s-a.duracao_s).slice(0,8);
+  const lac = [...DADOS.lacunas_dados].sort((a,b)=>b.duracao_s-a.duracao_s).slice(0,8);
+  $("#paradas").innerHTML =
+    `<table><thead><tr><th>Parada entre ciclos</th><th>Início</th><th>Fim</th><th>Duração</th></tr></thead><tbody>` +
+    (top.map(p=>`<tr><td>#${p.entre[0]} → #${p.entre[1]} <span class="muted">(${esc(p.turno)})</span></td><td>${fmtHora(p.inicio)}</td><td>${fmtHora(p.fim)}</td><td><b>${fmtDur(p.duracao_s)}</b></td></tr>`).join("") || `<tr><td colspan="4" class="muted">Nenhuma parada.</td></tr>`) +
+    `</tbody></table><br><table><thead><tr><th>Lacuna de dados</th><th>Início</th><th>Fim</th><th>Duração</th></tr></thead><tbody>` +
+    (lac.map(l=>`<tr><td>${esc(l.fonte)}</td><td>${fmtDH(l.inicio)}</td><td>${fmtHora(l.fim)}</td><td><b>${fmtDur(l.duracao_s)}</b></td></tr>`).join("") || `<tr><td colspan="4" class="muted">Sem lacunas.</td></tr>`) +
+    `</tbody></table>`;
+
+  // Tabela de ciclos
+  $("#tabela").innerHTML =
+    `<thead><tr><th>#</th><th>Status</th><th>Turno</th><th>Início</th><th>Fim</th><th>Duração</th><th>Sequência</th></tr></thead><tbody>` +
+    (ciclos.map(c => {
+      const tag = c.status !== "Completo" ? `<span class="tag and">Em andamento</span>` : (c.forcado ? `<span class="tag forc">Fim estimado</span>` : `<span class="tag ok">Completo</span>`);
+      const et = c.etapas.map(e => e.presente
+        ? `<tr><td><b>${e.cod}</b></td><td>${esc(e.nome)}</td><td>${fmtHora(e.inicio)}</td><td>${fmtHora(e.fim)}</td><td>${fmtDur(e.duracao_s)}${e.estimada?' <span class="muted">(est.)</span>':''}</td><td>${e.angulo}°</td></tr>`
+        : `<tr class="muted"><td><b>${e.cod}</b></td><td>${esc(e.nome)}</td><td colspan="4">${e.cod===50?"Opcional (pulada)":"Indeterminada"}</td></tr>`).join("");
+      const arcoTxt = Object.entries(c.arco||{}).map(([m,v])=>`${esc(m)}: ${fmtDur(v.arco_s)}${v.corrente_A?` · ${v.corrente_A.toFixed(0)} A`:""}`).join(" &nbsp;|&nbsp; ");
+      return `<tr class="ciclo" data-n="${c.numero}"><td><b>${c.numero}</b></td><td>${tag}</td><td>${esc(c.turno)}</td><td>${fmtDH(c.inicio)}</td><td>${fmtDH(c.fim)}</td><td><b>${fmtDur(c.duracao_s)}</b></td><td>${esc(c.sequencia)}</td></tr>`
+        + `<tr class="det" data-d="${c.numero}" hidden><td colspan="7"><table><thead><tr><th>Etapa</th><th>Descrição</th><th>Início</th><th>Fim</th><th>Duração</th><th>Girador</th></tr></thead><tbody>${et}</tbody></table>${arcoTxt?`<p class="muted" style="margin:8px 0 0">Arco no ciclo — ${arcoTxt}</p>`:""}</td></tr>`;
+    }).join("") || `<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">Nenhum ciclo no período.</td></tr>`) + `</tbody>`;
+
+  document.querySelectorAll("tr.ciclo").forEach(tr => tr.addEventListener("click", () => abrirCiclo(+tr.dataset.n, false)));
+  if (selecionado) abrirCiclo(selecionado, false, true);
+}
+
+function abrirCiclo(n, rolar = true, manter = false) {
+  const tr = document.querySelector(`tr.ciclo[data-n="${n}"]`);
+  const det = document.querySelector(`tr.det[data-d="${n}"]`);
+  if (!tr) return;
+  const abrir = rolar || manter ? true : det.hidden;
+  det.hidden = !abrir;
+  tr.classList.toggle("sel", abrir);
+  selecionado = abrir ? n : null;
+  if (rolar) tr.scrollIntoView({behavior:"smooth", block:"center"});
+}
+
+async function carregar() {
+  const di = $("#di").value, df = $("#df").value;
+  const btn = $("#atualizar");
+  if (!di || !df) return;
+  btn.disabled = true; btn.textContent = "Carregando...";
+  $("#aviso").innerHTML = `<div class="msg info">Consultando dados…</div>`;
+  try {
+    const r = await fetch(`/dashboard/api/dados?data_inicio=${di}&data_fim=${df}`);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.erro || "Falha ao carregar.");
+    DADOS = j; selecionado = null;
+    $("#aviso").innerHTML = `<div class="msg info">Período ${fmtDH(j.periodo.inicio)} → ${fmtDH(j.periodo.fim)} · gerado às ${fmtHora(j.gerado_em)}</div>`;
+    render();
+  } catch (e) {
+    $("#aviso").innerHTML = `<div class="msg erro">${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "Atualizar";
+  }
+}
+
+$("#atualizar").addEventListener("click", carregar);
+$("#di").addEventListener("change", () => { if ($("#df").value < $("#di").value) $("#df").value = $("#di").value; });
+$("#seg").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  TURNO = b.dataset.t;
+  document.querySelectorAll("#seg button").forEach(x => x.classList.toggle("on", x === b));
+  if (DADOS) render();
+});
+document.querySelectorAll("[data-rapido]").forEach(b => b.addEventListener("click", () => {
+  const n = +b.dataset.rapido;
+  const hojeIso = "{{ hoje }}", f = new Date(hojeIso + "T12:00:00"), i = new Date(f);
+  i.setDate(i.getDate() - (n - 1));
+  const iso = (d) => d.toISOString().slice(0,10);
+  $("#di").value = iso(i); $("#df").value = iso(f); carregar();
+}));
+carregar();
+</script>
+</body>
+</html>

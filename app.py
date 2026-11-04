@@ -16,6 +16,9 @@ load_dotenv(BASE_DIR / ".env")
 
 app = Flask(__name__)
 
+from dashboard import bp as dashboard_bp  # dashboard gerencial (/dashboard)
+app.register_blueprint(dashboard_bp)
+
 INFLUX_URL = os.getenv("INFLUX_URL", "http://10.20.0.239:8181")
 INFLUX_DB = os.getenv("INFLUX_DB", "manufatura")
 
