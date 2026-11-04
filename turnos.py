@@ -4,7 +4,7 @@ from config import TZ_LOCAL
 def horario_turnos(dia):
     """Retorna os horários dos dois turnos do dia de produção."""
     if dia.weekday() == 4:  # sexta-feira
-        return (time(6, 30), time(14, 20), time(22, 0))
+        return (time(6, 30), time(14, 20), time(21, 40))
     if dia.weekday() < 4:  # segunda a quinta-feira
         return (time(6, 30), time(16, 20), time(1, 40))
     return None

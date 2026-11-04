@@ -85,11 +85,11 @@
   <section class="kpis" id="kpis"></section>
 
   <section class="grid">
-    <div class="panel"><h2>Produção por dia e turno</h2><p class="hint">Vigas concluídas (ciclos completos), pelo dia produtivo.</p><div class="chart-box"><canvas id="cProd"></canvas></div></div>
-    <div class="panel"><h2>Duração de cada ciclo</h2><p class="hint">Clique em uma barra para abrir o ciclo na tabela. Linha = média.</p><div class="chart-box"><canvas id="cCiclos"></canvas></div></div>
+    <div class="panel"><h2>Produção por dia e turno</h2><p class="hint">Vigas concluídas (ciclos completos), pelo dia produtivo. Ciclos fora de turno também contam.</p><div class="chart-box"><canvas id="cProd"></canvas></div></div>
+    <div class="panel"><h2>Duração de cada ciclo</h2><p class="hint">Tempo produtivo (sem almoço, janta e fora de turno). Clique em uma barra para abrir o ciclo. Linha = média.</p><div class="chart-box"><canvas id="cCiclos"></canvas></div></div>
     <div class="panel"><h2>Tempo médio por etapa</h2><p class="hint">Etapas medidas (20, 30, 40, 50). Etapas 10 e 60 são estimadas e etapas forçadas ficam de fora.</p><div class="chart-box"><canvas id="cEtapas"></canvas></div></div>
     <div class="panel"><h2>Arco aberto por máquina</h2><p class="hint">Dentro dos ciclos filtrados. Utilização = arco ÷ tempo de ciclo.</p><div class="chart-box"><canvas id="cArco"></canvas></div><div class="maq" id="maq"></div></div>
-    <div class="panel"><h2>Tempo ocioso entre ciclos</h2><p class="hint">Intervalo entre o fim de um ciclo e o início do próximo, por dia e turno.</p><div class="chart-box"><canvas id="cOcioso"></canvas></div></div>
+    <div class="panel"><h2>Tempo ocioso entre ciclos</h2><p class="hint">Entre o fim de um ciclo e o início do próximo, só dentro dos turnos e fora das refeições.</p><div class="chart-box"><canvas id="cOcioso"></canvas></div></div>
     <div class="panel"><h2>Maiores paradas e lacunas de dados</h2><p class="hint">Paradas = ociosidade entre ciclos. Lacunas = falta de leituras (sensor/rede), não são paradas.</p><div class="scroll" id="paradas"></div></div>
   </section>
 
@@ -117,6 +117,7 @@ const fmtHora = (iso) => iso ? new Date(iso).toLocaleTimeString("pt-BR") : "—"
 const fmtDH = (iso) => iso ? new Date(iso).toLocaleString("pt-BR") : "—";
 const fmtDia = (iso) => { const [y,m,d] = iso.split("-"); return `${d}/${m}`; };
 const min = (s) => +(s/60).toFixed(1);
+const descontado = (bruto, prod) => (bruto != null && bruto - prod >= 60) ? ` <span class="muted" title="Tempo bruto; o excedente é horário fora de turno ou pausa">(bruto ${fmtDur(bruto)})</span>` : "";
 const media = (a) => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
 
 function filtros() {
@@ -124,6 +125,7 @@ function filtros() {
   return {
     ciclos: DADOS.ciclos.filter(ok),
     paradas: DADOS.paradas.filter(ok),
+    disponivel: DADOS.disponivel.filter(ok),
   };
 }
 
@@ -133,15 +135,19 @@ function criar(id, cfg) {
 }
 
 function render() {
-  const {ciclos, paradas} = filtros();
+  const {ciclos, paradas, disponivel} = filtros();
   const completos = ciclos.filter(c => c.status === "Completo");
   const andamento = ciclos.filter(c => c.status !== "Completo");
   const forcados = completos.filter(c => c.forcado);
-  const duracoes = completos.map(c => c.duracao_s).filter(d => d != null);
+  // Só tempo produtivo (dentro do turno e sem almoço/janta); ciclos 100% fora de turno ficam de fora.
+  const produtivos = completos.filter(c => (c.duracao_prod_s || 0) > 0);
+  const duracoes = produtivos.map(c => c.duracao_prod_s);
 
   // arco por máquina (somente dentro dos ciclos filtrados)
   const arco = {};
-  const tempoCiclos = completos.reduce((a,c) => a + (c.duracao_s || 0), 0);
+  const tempoCiclos = completos.reduce((a,c) => a + (c.duracao_prod_s || 0), 0);
+  const tempoEmCiclo = ciclos.reduce((a,c) => a + (c.duracao_prod_s || 0), 0);
+  const tempoDisp = disponivel.reduce((a,d) => a + d.produtivo_s, 0);
   for (const c of ciclos) for (const [m, v] of Object.entries(c.arco || {})) {
     arco[m] ??= {s:0, as:0};
     arco[m].s += v.arco_s || 0;
@@ -157,6 +163,7 @@ function render() {
   + kpi("Tempo médio de ciclo", fmtDur(media(duracoes)), duracoes.length ? `mín ${fmtDur(Math.min(...duracoes))} · máx ${fmtDur(Math.max(...duracoes))}` : "")
   + kpi("Arco aberto (total)", fmtDur(arcoTotal), tempoCiclos ? `${(arcoTotal/tempoCiclos*100).toFixed(0)}% do tempo de ciclo (somando máquinas)` : "")
   + kpi("Ocioso entre ciclos", fmtDur(ociosoTotal), paradas.length ? `${paradas.length} intervalos · média ${fmtDur(ociosoTotal/paradas.length)}` : "sem intervalos")
+  + kpi("Ocupação da linha", tempoDisp ? (tempoEmCiclo/tempoDisp*100).toFixed(0)+"%" : "—", tempoDisp ? `${fmtDur(tempoEmCiclo)} em ciclo de ${fmtDur(tempoDisp)} produtivas` : "sem turnos no período")
   + kpi("Ciclos com fim estimado", forcados.length, forcados.length ? "fim forçado pelo início do próximo" : "nenhum");
 
   // 1) Produção por dia/turno
@@ -171,20 +178,20 @@ function render() {
   // 2) Duração dos ciclos
   const mediaDur = media(duracoes);
   criar("cCiclos", {type:"bar",
-    data:{labels:completos.map(c=>`#${c.numero}`), datasets:[
-      {label:"Duração (min)", data:completos.map(c=>min(c.duracao_s||0)),
-       backgroundColor:completos.map(c => c.forcado ? "#f59e0b" : COR_TURNO[c.turno])},
-      {type:"line", label:"Média", data:completos.map(()=>mediaDur?min(mediaDur):null), borderColor:"#dc2626", borderDash:[6,4], pointRadius:0}]},
+    data:{labels:produtivos.map(c=>`#${c.numero}`), datasets:[
+      {label:"Duração produtiva (min)", data:produtivos.map(c=>min(c.duracao_prod_s)),
+       backgroundColor:produtivos.map(c => c.forcado ? "#f59e0b" : COR_TURNO[c.turno])},
+      {type:"line", label:"Média", data:produtivos.map(()=>mediaDur?min(mediaDur):null), borderColor:"#dc2626", borderDash:[6,4], pointRadius:0}]},
     options:{responsive:true, maintainAspectRatio:false,
       scales:{y:{beginAtZero:true, title:{display:true,text:"min"}}},
-      plugins:{tooltip:{callbacks:{afterLabel:(i)=>{const c=completos[i.dataIndex]; return c?`${fmtDH(c.inicio)} · ${c.turno}${c.forcado?" · fim estimado":""}`:""}}}},
-      onClick:(e,els)=>{ if(els.length && els[0].datasetIndex===0) abrirCiclo(completos[els[0].index].numero); }}});
+      plugins:{tooltip:{callbacks:{afterLabel:(i)=>{const c=produtivos[i.dataIndex]; return c?`${fmtDH(c.inicio)} · ${c.turno}${c.forcado?" · fim estimado":""}${c.duracao_s-c.duracao_prod_s>=60?` · bruto ${fmtDur(c.duracao_s)}`:""}`:""}}}},
+      onClick:(e,els)=>{ if(els.length && els[0].datasetIndex===0) abrirCiclo(produtivos[els[0].index].numero); }}});
 
   // 3) Etapas
   const stats = {};
   for (const c of completos) for (const e of c.etapas)
-    if (e.presente && !e.estimada && e.duracao_s != null && [20,30,40,50].includes(e.cod))
-      (stats[e.cod] ??= []).push(e.duracao_s);
+    if (e.presente && !e.estimada && e.duracao_prod_s > 0 && [20,30,40,50].includes(e.cod))
+      (stats[e.cod] ??= []).push(e.duracao_prod_s);
   const cods = Object.keys(stats).sort();
   const nomes = {20:"20 · Solda plana",30:"30 · Vertical 1",40:"40 · Vertical 2",50:"50 · Limpeza"};
   criar("cEtapas", {type:"bar",
@@ -224,14 +231,14 @@ function render() {
 
   // Tabela de ciclos
   $("#tabela").innerHTML =
-    `<thead><tr><th>#</th><th>Status</th><th>Turno</th><th>Início</th><th>Fim</th><th>Duração</th><th>Sequência</th></tr></thead><tbody>` +
+    `<thead><tr><th>#</th><th>Status</th><th>Turno</th><th>Início</th><th>Fim</th><th>Duração produtiva</th><th>Sequência</th></tr></thead><tbody>` +
     (ciclos.map(c => {
       const tag = c.status !== "Completo" ? `<span class="tag and">Em andamento</span>` : (c.forcado ? `<span class="tag forc">Fim estimado</span>` : `<span class="tag ok">Completo</span>`);
       const et = c.etapas.map(e => e.presente
-        ? `<tr><td><b>${e.cod}</b></td><td>${esc(e.nome)}</td><td>${fmtHora(e.inicio)}</td><td>${fmtHora(e.fim)}</td><td>${fmtDur(e.duracao_s)}${e.estimada?' <span class="muted">(est.)</span>':''}</td><td>${e.angulo}°</td></tr>`
+        ? `<tr><td><b>${e.cod}</b></td><td>${esc(e.nome)}</td><td>${fmtHora(e.inicio)}</td><td>${fmtHora(e.fim)}</td><td>${fmtDur(e.duracao_prod_s)}${descontado(e.duracao_s, e.duracao_prod_s)}${e.estimada?' <span class="muted">(est.)</span>':''}</td><td>${e.angulo}°</td></tr>`
         : `<tr class="muted"><td><b>${e.cod}</b></td><td>${esc(e.nome)}</td><td colspan="4">${e.cod===50?"Opcional (pulada)":"Indeterminada"}</td></tr>`).join("");
       const arcoTxt = Object.entries(c.arco||{}).map(([m,v])=>`${esc(m)}: ${fmtDur(v.arco_s)}${v.corrente_A?` · ${v.corrente_A.toFixed(0)} A`:""}`).join(" &nbsp;|&nbsp; ");
-      return `<tr class="ciclo" data-n="${c.numero}"><td><b>${c.numero}</b></td><td>${tag}</td><td>${esc(c.turno)}</td><td>${fmtDH(c.inicio)}</td><td>${fmtDH(c.fim)}</td><td><b>${fmtDur(c.duracao_s)}</b></td><td>${esc(c.sequencia)}</td></tr>`
+      return `<tr class="ciclo" data-n="${c.numero}"><td><b>${c.numero}</b></td><td>${tag}</td><td>${esc(c.turno)}</td><td>${fmtDH(c.inicio)}</td><td>${fmtDH(c.fim)}</td><td><b>${fmtDur(c.duracao_prod_s)}</b>${descontado(c.duracao_s, c.duracao_prod_s)}</td><td>${esc(c.sequencia)}</td></tr>`
         + `<tr class="det" data-d="${c.numero}" hidden><td colspan="7"><table><thead><tr><th>Etapa</th><th>Descrição</th><th>Início</th><th>Fim</th><th>Duração</th><th>Girador</th></tr></thead><tbody>${et}</tbody></table>${arcoTxt?`<p class="muted" style="margin:8px 0 0">Arco no ciclo — ${arcoTxt}</p>`:""}</td></tr>`;
     }).join("") || `<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">Nenhum ciclo no período.</td></tr>`) + `</tbody>`;
 
@@ -261,7 +268,9 @@ async function carregar() {
     const j = await r.json();
     if (!r.ok) throw new Error(j.erro || "Falha ao carregar.");
     DADOS = j; selecionado = null;
-    $("#aviso").innerHTML = `<div class="msg info">Período ${fmtDH(j.periodo.inicio)} → ${fmtDH(j.periodo.fim)} · gerado às ${fmtHora(j.gerado_em)}</div>`;
+    const pausas = j.pausas.map(p => `${fmtDia(p.dia)} ${esc(p.nome)} ${fmtHora(p.inicio).slice(0,5)}–${fmtHora(p.fim).slice(0,5)}`).join(" · ");
+    $("#aviso").innerHTML = `<div class="msg info">Período ${fmtDH(j.periodo.inicio)} → ${fmtDH(j.periodo.fim)} · gerado às ${fmtHora(j.gerado_em)}<br>
+      <small>Tempos consideram só a jornada produtiva: seg–qui 06:30–16:20 / 16:20–01:40, sex 06:30–14:20 / 14:20–21:40; sem finais de semana, almoço nem janta (1h, 12:00–13:00 e 19:30–20:30 por padrão; se houver solda nesses horários, são inferidos pelos dados).${pausas ? `<br>Pausas detectadas: ${pausas}` : ""}</small></div>`;
     render();
   } catch (e) {
     $("#aviso").innerHTML = `<div class="msg erro">${esc(e.message)}</div>`;

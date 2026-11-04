@@ -2,8 +2,12 @@
 Dashboard gerencial (Blueprint Flask).
 
 Módulo independente: apenas LÊ as funções já existentes do projeto
-(detectar_ciclos_por_ancora, resumir_soldagem, resumir_girador,
-consultar_tabelas_influx, horario_turnos) e não altera nenhuma delas.
+(detectar_ciclos_por_ancora, resumir_girador, consultar_tabelas_influx,
+horario_turnos) e não altera nenhuma delas.
+
+Todos os tempos (duração de ciclo/etapa, ociosidade, arco, lacunas) consideram
+apenas a JORNADA PRODUTIVA: dentro dos turnos e fora das pausas de almoço e
+janta (ver periodos.py). Noites, finais de semana e refeições são descartados.
 
 Rotas:
   GET /dashboard            -> página (templates/dashboard.html)
@@ -16,27 +20,26 @@ import logging
 import os
 import threading
 import time as _time
-from bisect import bisect_left
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 from flask import Blueprint, jsonify, render_template, request
 
 from config import TZ_LOCAL
-from dados import ler_jsonl, parse_iso_utc
+from dados import ler_jsonl
 from girador import detectar_ciclos_por_ancora, resumir_girador
 from influx_client import consultar_tabelas_influx
-from soldagem import resumir_soldagem
-from turnos import horario_turnos
+from periodos import IndiceArco, Jornada, intervalos_de_arco
 
 log = logging.getLogger(__name__)
 bp = Blueprint("dashboard", __name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 
-# Dia produtivo: começa às 06:30 e o 2º turno pode ir até 01:40 do dia seguinte.
+# Janela de análise por dia produtivo: 06:30 até 02:00 do dia seguinte
+# (o 2º turno de segunda a quinta termina às 01:40).
 INICIO_DIA_PRODUTIVO = time(6, 30)
-FIM_DIA_PRODUTIVO = time(2, 0)  # do dia seguinte
+FIM_DIA_PRODUTIVO = time(2, 0)
 MAX_DIAS = 31
 CACHE_TTL_S = 60
 
@@ -58,16 +61,6 @@ _cache_lock = threading.Lock()
 # ---------------------------------------------------------------------
 def _iso(dt):
     return dt.astimezone(TZ_LOCAL).isoformat() if dt else None
-
-
-def classificar_turno(dt):
-    """Retorna (dia_produtivo, rótulo do turno) para um instante."""
-    dia = (dt - timedelta(hours=2)).date()
-    horarios = horario_turnos(dia)
-    if not horarios:
-        return dia, "Fora de turno"
-    fim_turno_1 = datetime.combine(dia, horarios[1], tzinfo=TZ_LOCAL)
-    return dia, ("1º turno" if dt < fim_turno_1 else "2º turno")
 
 
 def _carregar_registros(janela_inicio, janela_fim):
@@ -94,27 +87,8 @@ def _carregar_registros(janela_inicio, janela_fim):
     )
 
 
-def _indexar_soldagem(registros):
-    """Ordena registros de soldagem por horário para fatiar por ciclo."""
-    itens = []
-    for r in registros:
-        try:
-            itens.append((parse_iso_utc(r["time"]), r))
-        except (KeyError, TypeError, ValueError):
-            continue
-    itens.sort(key=lambda x: x[0])
-    return [i[0] for i in itens], [i[1] for i in itens]
-
-
-def _fatiar(tempos, regs, ini, fim):
-    lo = bisect_left(tempos, ini.astimezone(tempos[0].tzinfo)) if tempos else 0
-    hi = bisect_left(tempos, fim.astimezone(tempos[0].tzinfo)) if tempos else 0
-    return regs[lo:hi]
-
-
-def _serializar_ciclo(c, arco_ciclo):
-    ref = c["etapa_30"]["inicio"]
-    dia, turno = classificar_turno(ref)
+def _serializar_ciclo(c, jornada, indices_arco, fim_efetivo):
+    dia, turno = jornada.turno_de(c["etapa_30"]["inicio"])
     forcado = bool(c.get("fim_forcado"))
 
     etapas = []
@@ -131,10 +105,18 @@ def _serializar_ciclo(c, arco_ciclo):
             "inicio": _iso(e["inicio"]),
             "fim": _iso(e["fim"]),
             "duracao_s": e["duracao"],
+            "duracao_prod_s": jornada.segundos(e["inicio"], e["fim"]),
             # Etapa 10 é sintética (fixa 5 min) e a 60 é limitada a 5 min;
             # etapa encerrada à força também não representa duração real.
             "estimada": cod in (10, 60) or (forcado and e["fim"] == c["fim_ciclo"]),
         })
+
+    ini, fim = c["inicio_ciclo"], fim_efetivo
+    trechos = jornada.trechos_ts(ini, fim) if fim > ini else []
+    arco = {}
+    for maq, indice in indices_arco.items():
+        arco_s, corrente = indice.arco_em(trechos)
+        arco[maq] = {"arco_s": arco_s, "corrente_A": corrente}
 
     return {
         "numero": c["numero"],
@@ -145,10 +127,43 @@ def _serializar_ciclo(c, arco_ciclo):
         "inicio": _iso(c["inicio_ciclo"]),
         "fim": _iso(c["fim_ciclo"]),
         "duracao_s": c["duracao_ciclo"],
+        "duracao_prod_s": jornada.segundos(ini, fim),
         "sequencia": c["sequencia"],
         "etapas": etapas,
-        "arco": arco_ciclo,
+        "arco": arco,
     }
+
+
+def _paradas(ciclos, jornada):
+    """Ociosidade entre ciclos consecutivos, só dentro da jornada produtiva.
+
+    Um intervalo que atravessa a noite ou o fim de semana conta apenas as
+    horas de turno; cada (dia, turno) afetado gera uma entrada.
+    """
+    paradas = []
+    for atual, prox in zip(ciclos, ciclos[1:]):
+        if not atual["fim_ciclo"]:
+            continue
+        ini, fim = atual["fim_ciclo"], prox["inicio_ciclo"]
+        if fim <= ini:
+            continue
+        por_turno = {}
+        for a, b, dia, rotulo in jornada.fatiar(ini, fim):
+            item = por_turno.setdefault((dia, rotulo), {"ini": a, "fim": b, "s": 0.0})
+            item["fim"] = b
+            item["s"] += (b - a).total_seconds()
+        for (dia, rotulo), item in por_turno.items():
+            if item["s"] < 1:
+                continue
+            paradas.append({
+                "inicio": _iso(item["ini"]),
+                "fim": _iso(item["fim"]),
+                "duracao_s": item["s"],
+                "dia": dia.isoformat(),
+                "turno": rotulo,
+                "entre": [atual["numero"], prox["numero"]],
+            })
+    return paradas
 
 
 # ---------------------------------------------------------------------
@@ -157,65 +172,46 @@ def _serializar_ciclo(c, arco_ciclo):
 def calcular_dashboard(dia_inicio, dia_fim):
     janela_inicio = datetime.combine(dia_inicio, INICIO_DIA_PRODUTIVO, tzinfo=TZ_LOCAL)
     janela_fim = datetime.combine(dia_fim + timedelta(days=1), FIM_DIA_PRODUTIVO, tzinfo=TZ_LOCAL)
+    agora = datetime.now(TZ_LOCAL)
 
     reg_soldagem, reg_girador = _carregar_registros(janela_inicio, janela_fim)
 
+    arcos = intervalos_de_arco(reg_soldagem)
+    jornada = Jornada(dia_inicio, dia_fim, arcos, agora)
+    indices_arco = {maq: IndiceArco(ivs) for maq, ivs in arcos.items()}
+
     ciclos = detectar_ciclos_por_ancora(reg_girador, janela_inicio, janela_fim)
-    resumo_total, _ = resumir_soldagem(reg_soldagem, janela_inicio, janela_fim)
     _, _, lacunas_girador, _ = resumir_girador(reg_girador, janela_inicio, janela_fim)
 
-    tempos_s, regs_s = _indexar_soldagem(reg_soldagem)
-    agora = datetime.now(TZ_LOCAL)
-
-    # Ciclos + arco por ciclo
-    ciclos_json = []
-    for c in ciclos:
-        ini = c["inicio_ciclo"]
-        fim = c["fim_ciclo"] or min(janela_fim, agora)
-        arco = {}
-        if fim > ini and tempos_s:
-            resumo, _ = resumir_soldagem(_fatiar(tempos_s, regs_s, ini, fim), ini, fim)
-            arco = {
-                maq: {"arco_s": d["tempo_arco_s"], "corrente_A": d["corrente_media_A"]}
-                for maq, d in resumo.items()
-            }
-        ciclos_json.append(_serializar_ciclo(c, arco))
-
-    # Paradas entre ciclos consecutivos (já sem sobreposição)
-    paradas = []
-    for atual, prox in zip(ciclos, ciclos[1:]):
-        if not atual["fim_ciclo"]:
-            continue
-        ocioso = (prox["inicio_ciclo"] - atual["fim_ciclo"]).total_seconds()
-        if ocioso > 0:
-            dia, turno = classificar_turno(atual["fim_ciclo"])
-            paradas.append({
-                "inicio": _iso(atual["fim_ciclo"]),
-                "fim": _iso(prox["inicio_ciclo"]),
-                "duracao_s": ocioso,
-                "dia": dia.isoformat(),
-                "turno": turno,
-                "entre": [atual["numero"], prox["numero"]],
-            })
-
-    # Lacunas de dados (sensor/rede) — não são paradas de produção
-    lacunas = [
-        {"fonte": "Girador", "inicio": _iso(a), "fim": _iso(b), "duracao_s": s}
-        for a, b, s in lacunas_girador
+    ciclos_json = [
+        _serializar_ciclo(c, jornada, indices_arco, c["fim_ciclo"] or min(janela_fim, agora))
+        for c in ciclos
     ]
-    for maq, d in resumo_total.items():
-        for a, b, s in d["lacunas"]:
-            lacunas.append({"fonte": maq, "inicio": _iso(a), "fim": _iso(b), "duracao_s": s})
+
+    # Lacunas de dados (sensor/rede): só as que caem dentro da jornada produtiva.
+    lacunas = []
+    for a, b, _ in lacunas_girador:
+        prod = jornada.segundos(a, b)
+        if prod >= 1:
+            lacunas.append({"fonte": "Girador", "inicio": _iso(a), "fim": _iso(b), "duracao_s": prod})
     lacunas.sort(key=lambda x: x["inicio"])
 
-    maquinas = {
-        maq: {
-            "arco_s": d["tempo_arco_s"],
-            "corrente_A": d["corrente_media_A"],
-            "registros": d["registros"],
-        }
-        for maq, d in resumo_total.items()
-    }
+    # Arco total por máquina no período, dentro da jornada produtiva.
+    fim_total = min(janela_fim, agora)
+    trechos_total = jornada.trechos_ts(janela_inicio, fim_total) if fim_total > janela_inicio else []
+    maquinas = {}
+    for maq, indice in indices_arco.items():
+        arco_s, corrente = indice.arco_em(trechos_total)
+        maquinas[maq] = {"arco_s": arco_s, "corrente_A": corrente}
+
+    disponivel = [
+        {"dia": d.isoformat(), "turno": t, "produtivo_s": s}
+        for (d, t), s in sorted(jornada.disponivel(agora).items())
+    ]
+    pausas = [
+        {"dia": d.isoformat(), "nome": n, "inicio": _iso(a), "fim": _iso(b)}
+        for a, b, d, n in sorted(jornada.pausas)
+    ]
 
     return {
         "periodo": {
@@ -226,9 +222,11 @@ def calcular_dashboard(dia_inicio, dia_fim):
         },
         "gerado_em": _iso(agora),
         "ciclos": ciclos_json,
-        "paradas": paradas,
+        "paradas": _paradas(ciclos, jornada),
         "lacunas_dados": lacunas,
         "maquinas_periodo": maquinas,
+        "disponivel": disponivel,
+        "pausas": pausas,
     }
 
 
@@ -237,9 +235,10 @@ def calcular_dashboard(dia_inicio, dia_fim):
 # ---------------------------------------------------------------------
 @bp.route("/dashboard")
 def pagina():
-    hoje = datetime.now(TZ_LOCAL).date()
+    agora = datetime.now(TZ_LOCAL)
+    hoje = agora.date()
     # Antes das 06:30 ainda é o dia produtivo anterior.
-    if datetime.now(TZ_LOCAL).time() < INICIO_DIA_PRODUTIVO:
+    if agora.time() < INICIO_DIA_PRODUTIVO:
         hoje -= timedelta(days=1)
     return render_template("dashboard.html", hoje=hoje.isoformat())
 
