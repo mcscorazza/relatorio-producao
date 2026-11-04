@@ -651,6 +651,121 @@
         padding: 28px 12px;
       }
 
+      /* Linha do tempo */
+      .tl-scroll {
+        max-height: 520px;
+      }
+      .tl-day {
+        display: grid;
+        grid-template-columns: 64px minmax(0, 1fr);
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+        align-items: center;
+      }
+      .tl-day:last-child {
+        border-bottom: 0;
+      }
+      .tl-date b {
+        display: block;
+      }
+      .tl-date span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .tl-shifts {
+        display: grid;
+        grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr));
+        gap: 12px;
+        min-width: 0;
+      }
+      .tl-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 5px;
+      }
+      .tl-head b {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .tl-track {
+        position: relative;
+        height: 32px;
+        background: var(--surface-2);
+        border-radius: 9px;
+        overflow: hidden;
+      }
+      .tl-grid {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: var(--line);
+      }
+      .tl-cycle {
+        position: absolute;
+        top: 4px;
+        bottom: 4px;
+        min-width: 3px;
+        border-radius: 6px;
+        background: var(--c);
+        color: var(--primary-ink);
+        font-size: 11px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        cursor: pointer;
+        transition: filter 0.15s;
+      }
+      .tl-cycle:hover,
+      .tl-cycle:focus-visible {
+        filter: brightness(1.12);
+        outline-offset: 1px;
+      }
+      .tl-cycle.ok {
+        --c: var(--good);
+      }
+      .tl-cycle.forc {
+        --c: var(--bad);
+      }
+      .tl-cycle.and {
+        --c: var(--warn);
+      }
+      .tl-pausa {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        pointer-events: none;
+        background: repeating-linear-gradient(
+          45deg,
+          transparent 0 5px,
+          rgba(100, 116, 139, 0.38) 5px 7px
+        );
+        border-left: 1px dashed var(--muted);
+        border-right: 1px dashed var(--muted);
+      }
+      .legend .sw-pausa {
+        background: repeating-linear-gradient(
+          45deg,
+          var(--surface-2) 0 2px,
+          var(--muted) 2px 3px
+        );
+      }
+      @media (max-width: 760px) {
+        .tl-day {
+          grid-template-columns: 48px minmax(0, 1fr);
+          gap: 8px;
+        }
+        .tl-shifts {
+          grid-template-columns: 1fr;
+        }
+      }
+
       @media (max-width: 1200px) {
         .kpis {
           grid-template-columns: repeat(3, 1fr);
@@ -805,6 +920,16 @@
           </p>
           <div class="scroll" id="lacunas"></div>
         </div>
+      </section>
+
+      <section class="card" style="margin-bottom: 16px">
+        <h2>Linha do tempo da produção</h2>
+        <p class="hint">
+          Início e fim de cada ciclo dentro dos turnos. Clique em um ciclo para
+          abri-lo na tabela.
+        </p>
+        <div class="legend" id="legTimeline"></div>
+        <div class="scroll tl-scroll" id="timeline"></div>
       </section>
 
       <section class="card">
@@ -1303,6 +1428,8 @@
             `<tr><td colspan="4" class="empty">Sem lacunas.</td></tr>`) +
           `</tbody></table>`;
 
+        renderTimeline();
+
         // ---------- Tabela de ciclos ----------
         $("#legEtapas").innerHTML = [20, 30, 40, 50, 60]
           .map(
@@ -1367,6 +1494,67 @@
             ),
           );
         if (selecionado) abrirCiclo(selecionado, false, true);
+      }
+
+      // Linha do tempo: um bloco por ciclo, posicionado dentro de cada turno.
+      function renderTimeline() {
+        const t0 = (iso) => new Date(iso).getTime();
+        const hm = (ms) =>
+          new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        const agora = t0(DADOS.gerado_em);
+        const turnos = DADOS.turnos.filter((t) => TURNO === "todos" || t.turno === TURNO);
+
+        $("#legTimeline").innerHTML =
+          `<span><i style="background:${css("--good")}"></i>Ciclo completo</span>` +
+          `<span><i style="background:${css("--bad")}"></i>Fim estimado</span>` +
+          `<span><i style="background:${css("--warn")}"></i>Em andamento</span>` +
+          `<span><i class="sw-pausa"></i>Pausa (fora dos totais)</span>` +
+          `<span><i style="background:${css("--surface-2")};border:1px solid ${css("--line")}"></i>Sem ciclo detectado</span>`;
+
+        const porDia = {};
+        for (const t of turnos) (porDia[t.dia] ??= []).push(t);
+
+        const html = Object.keys(porDia).sort().map((dia) => {
+          const d = new Date(dia + "T12:00:00");
+          const sem = d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+          const tracks = porDia[dia].sort((a, b) => t0(a.inicio) - t0(b.inicio)).map((t) => {
+            const ini = t0(t.inicio), fim = t0(t.fim), dur = fim - ini;
+            const pos = (a, b) => ({ l: ((a - ini) / dur) * 100, w: ((b - a) / dur) * 100 });
+
+            let grade = "";
+            for (let h = Math.ceil(ini / 3600000) * 3600000; h < fim; h += 3600000)
+              grade += `<div class="tl-grid" style="left:${pos(h, h).l}%"></div>`;
+
+            const pausas = DADOS.pausas
+              .filter((p) => p.dia === t.dia && t0(p.fim) > ini && t0(p.inicio) < fim)
+              .map((p) => {
+                const a = Math.max(t0(p.inicio), ini), b = Math.min(t0(p.fim), fim);
+                const { l, w } = pos(a, b);
+                return `<div class="tl-pausa" style="left:${l}%;width:${w}%" title="${esc(p.nome)} ${hm(t0(p.inicio))}–${hm(t0(p.fim))}"></div>`;
+              }).join("");
+
+            const ciclos = DADOS.ciclos.map((c) => {
+              const ci = t0(c.inicio), cf = c.fim ? t0(c.fim) : agora;
+              const a = Math.max(ci, ini), b = Math.min(cf, fim);
+              if (b <= a) return "";
+              const { l, w } = pos(a, b);
+              const cls = c.status !== "Completo" ? "and" : c.forcado ? "forc" : "ok";
+              const st = c.status !== "Completo" ? "em andamento" : c.forcado ? "fim estimado" : "completo";
+              const tip = `Ciclo ${c.numero} · ${hm(ci)}–${c.fim ? hm(cf) : "…"} · ${st} · ${fmtDur(c.duracao_prod_s)} produtivos`;
+              return `<div class="tl-cycle ${cls}" role="button" tabindex="0" data-n="${c.numero}" style="left:${l}%;width:${w}%" title="${esc(tip)}">${w > 2.2 ? c.numero : ""}</div>`;
+            }).join("");
+
+            return `<div><div class="tl-head"><b>${esc(t.turno)}</b><span>${hm(ini)}–${hm(fim)}</span></div><div class="tl-track">${grade}${ciclos}${pausas}</div></div>`;
+          }).join("");
+          return `<div class="tl-day"><div class="tl-date"><b>${fmtDia(dia)}</b><span>${esc(sem)}</span></div><div class="tl-shifts" style="--n:${porDia[dia].length}">${tracks}</div></div>`;
+        }).join("");
+
+        $("#timeline").innerHTML = html || `<div class="empty">Sem turnos produtivos no período (fim de semana).</div>`;
+        document.querySelectorAll(".tl-cycle").forEach((el) => {
+          const abrir = () => abrirCiclo(+el.dataset.n);
+          el.addEventListener("click", abrir);
+          el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); } });
+        });
       }
 
       function abrirCiclo(n, rolar = true, manter = false) {

@@ -208,6 +208,10 @@ def calcular_dashboard(dia_inicio, dia_fim):
         {"dia": d.isoformat(), "turno": t, "produtivo_s": s}
         for (d, t), s in sorted(jornada.disponivel(agora).items())
     ]
+    turnos = [
+        {"dia": d.isoformat(), "turno": r, "inicio": _iso(a), "fim": _iso(b)}
+        for a, b, d, r in jornada.turnos
+    ]
     pausas = [
         {"dia": d.isoformat(), "nome": n, "inicio": _iso(a), "fim": _iso(b)}
         for a, b, d, n in sorted(jornada.pausas)
@@ -226,6 +230,7 @@ def calcular_dashboard(dia_inicio, dia_fim):
         "lacunas_dados": lacunas,
         "maquinas_periodo": maquinas,
         "disponivel": disponivel,
+        "turnos": turnos,
         "pausas": pausas,
     }
 
