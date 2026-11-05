@@ -63,6 +63,14 @@ def _uniao(intervalos):
     return unidos
 
 
+def uniao_de_arcos(arcos_por_maquina):
+    """Arcos de todas as máquinas unidos e ordenados: [(ini_ts, fim_ts)]."""
+    return [
+        (a, b)
+        for a, b in _uniao([(i[0], i[1]) for ivs in arcos_por_maquina.values() for i in ivs])
+    ]
+
+
 class IndiceArco:
     """Intervalos de uma máquina, com busca rápida por janela."""
 

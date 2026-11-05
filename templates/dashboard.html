@@ -749,6 +749,17 @@
         border-left: 1px dashed var(--muted);
         border-right: 1px dashed var(--muted);
       }
+      .tl-feriado {
+        background: var(--surface-2);
+        border: 1px dashed var(--line);
+        border-radius: 9px;
+        padding: 8px 12px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .tl-feriado b {
+        color: var(--text);
+      }
       .legend .sw-pausa {
         background: repeating-linear-gradient(
           45deg,
@@ -1514,9 +1525,15 @@
         const porDia = {};
         for (const t of turnos) (porDia[t.dia] ??= []).push(t);
 
-        const html = Object.keys(porDia).sort().map((dia) => {
+        const feriados = {};
+        for (const f of DADOS.feriados || []) if (!porDia[f.dia]) feriados[f.dia] = f.nome;
+        const dias = [...new Set([...Object.keys(porDia), ...Object.keys(feriados)])].sort();
+
+        const html = dias.map((dia) => {
           const d = new Date(dia + "T12:00:00");
           const sem = d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+          if (feriados[dia])
+            return `<div class="tl-day"><div class="tl-date"><b>${fmtDia(dia)}</b><span>${esc(sem)}</span></div><div class="tl-feriado"><b>Feriado</b> · ${esc(feriados[dia])} — sem turnos</div></div>`;
           const tracks = porDia[dia].sort((a, b) => t0(a.inicio) - t0(b.inicio)).map((t) => {
             const ini = t0(t.inicio), fim = t0(t.fim), dur = fim - ini;
             const pos = (a, b) => ({ l: ((a - ini) / dur) * 100, w: ((b - a) / dur) * 100 });
@@ -1598,7 +1615,7 @@
             )
             .join(" · ");
           $("#jornadaTxt").innerHTML =
-            `Só entra nos totais o tempo dentro dos turnos (seg–qui 06:30–16:20 e 16:20–01:40; sex 06:30–14:20 e 14:20–21:40), sem finais de semana e sem as pausas de almoço e janta (1h cada; 12:00–13:00 e 19:30–20:30 por padrão, ou inferidas pelos dados quando há solda nesses horários).` +
+            `Só entra nos totais o tempo dentro dos turnos (seg–qui 06:30–16:20 e 16:20–01:40; sex 06:30–14:20 e 14:20–21:40), sem finais de semana, sem feriados (arquivo feriados.txt) e sem as pausas de almoço e janta (1h cada; 12:00–13:00 e 19:30–20:30 por padrão, ou inferidas pelos dados quando há solda nesses horários).` +
             (pausas ? `<br><b>Pausas consideradas:</b> ${pausas}` : "");
           try {
             await document.fonts.ready;

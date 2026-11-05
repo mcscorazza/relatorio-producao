@@ -1,7 +1,8 @@
+from bisect import bisect_right
 from collections import Counter
 from dados import parse_iso_utc
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from config import TZ_LOCAL
 
 def resumir_girador(registros, janela_inicio, janela_fim):
@@ -38,7 +39,21 @@ def angulo_girador_registro(registro):
         raise ValueError(f"Quadrante inválido: {q}; esperado 0, 1, 2 ou 3")
     return q * 90
 
-def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim):
+def _primeiro_arco(arcos, fins, ini, fim):
+    """Início do primeiro arco de solda entre `ini` e `fim` (datetimes) ou None.
+
+    `arcos`: intervalos de arco já unidos e ordenados, [(ini_ts, fim_ts)];
+    `fins`: lista dos fim_ts (mesma ordem). Se um arco já estava aberto em
+    `ini`, o início considerado é o próprio `ini`.
+    """
+    ini_ts, fim_ts = ini.timestamp(), fim.timestamp()
+    k = bisect_right(fins, ini_ts)  # primeiro arco que termina depois de `ini`
+    if k >= len(arcos) or arcos[k][0] >= fim_ts:
+        return None
+    return datetime.fromtimestamp(max(arcos[k][0], ini_ts), tz=TZ_LOCAL)
+
+
+def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim, arcos=None):
     """
     Detecta ciclos completos (Etapas 10 a 60) pelas âncoras laterais.
 
@@ -48,10 +63,14 @@ def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim):
     - Ruído específico: 0° -> 270° (<= 90 s) -> 180°.
     - Uma passagem temporária pela posição da etapa 50, seguida do
       retorno à âncora 40, não deve ser considerada etapa 50.
+    - Etapa 20: começa no INÍCIO DO PRIMEIRO ARCO de solda depois que o girador
+      chega em 0°/180° (e antes da etapa 30). Sem `arcos` (ou sem solda nesse
+      trecho), usa o instante em que o girador chegou na posição.
     - Etapa 10: cinco minutos antes da etapa 20.
     - Etapa 60: limitada a cinco minutos.
     """
     LIMITE_RUIDO_270_SEGUNDOS = 90
+    fins_arcos = [a[1] for a in arcos] if arcos else []
 
     # ---------------------------------------------------------
     # 1. Ler registros
@@ -285,6 +304,14 @@ def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim):
         e_40 = get_etapa_real(idx_40)
         e_50 = get_etapa_real(idx_50)
         e_60 = get_etapa_real(idx_60)
+
+        # Etapa 20 passa a começar no primeiro arco de solda, não no giro.
+        if arcos and e_20 and e_20["fim"]:
+            inicio_arco = _primeiro_arco(arcos, fins_arcos, e_20["inicio"], e_20["fim"])
+            if inicio_arco:
+                e_20["inicio_giro"] = e_20["inicio"]
+                e_20["inicio"] = inicio_arco
+                e_20["duracao"] = (e_20["fim"] - inicio_arco).total_seconds()
 
         # Etapa 10 sintética: cinco minutos antes da etapa 20.
         e_10 = None

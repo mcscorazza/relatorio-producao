@@ -252,7 +252,7 @@ th{{background:#14532d;color:white}}
   <h2>Linha do tempo da produção</h2>
   <div class="timeline-legend"><span class="timeline-key"><i class="timeline-swatch" style="background:#16a34a"></i>Ciclo completo</span><span class="timeline-key"><i class="timeline-swatch" style="background:#f59e0b"></i>Ciclo incompleto / cortado pela janela</span><span class="timeline-key"><i class="timeline-swatch" style="background:#e5e7eb;border:1px solid #cbd5e1"></i>Intervalo sem ciclo detectado</span></div>
   <div class="timeline-chart">{html_linha_tempo_producao(ciclos, inicio.date(), (fim - timedelta(hours=6)).date(), inicio, fim)}</div>
-  <p class="timeline-note">Turnos de segunda a quinta: 06:30–16:20 e 16:20–01:40 do dia seguinte. Sexta-feira: 06:30–14:20 e 14:20–22:00.</p>
+  <p class="timeline-note">Turnos de segunda a quinta: 06:30–16:20 e 16:20–01:40 do dia seguinte. Sexta-feira: 06:30–14:20 e 14:20–21:40. Feriados (feriados.txt) e finais de semana não têm turno.</p>
 </section>
 <section>
   <div class="cycle-section-head">

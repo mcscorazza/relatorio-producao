@@ -29,7 +29,8 @@ from config import TZ_LOCAL
 from dados import ler_jsonl
 from girador import detectar_ciclos_por_ancora, resumir_girador
 from influx_client import consultar_tabelas_influx
-from periodos import IndiceArco, Jornada, intervalos_de_arco
+from periodos import IndiceArco, Jornada, intervalos_de_arco, uniao_de_arcos
+from turnos import feriado
 
 log = logging.getLogger(__name__)
 bp = Blueprint("dashboard", __name__)
@@ -180,7 +181,9 @@ def calcular_dashboard(dia_inicio, dia_fim):
     jornada = Jornada(dia_inicio, dia_fim, arcos, agora)
     indices_arco = {maq: IndiceArco(ivs) for maq, ivs in arcos.items()}
 
-    ciclos = detectar_ciclos_por_ancora(reg_girador, janela_inicio, janela_fim)
+    ciclos = detectar_ciclos_por_ancora(
+        reg_girador, janela_inicio, janela_fim, arcos=uniao_de_arcos(arcos)
+    )
     _, _, lacunas_girador, _ = resumir_girador(reg_girador, janela_inicio, janela_fim)
 
     ciclos_json = [
@@ -208,6 +211,15 @@ def calcular_dashboard(dia_inicio, dia_fim):
         {"dia": d.isoformat(), "turno": t, "produtivo_s": s}
         for (d, t), s in sorted(jornada.disponivel(agora).items())
     ]
+    # Feriados em dias úteis do período (para a linha do tempo explicar a ausência de turno).
+    feriados = []
+    dia = dia_inicio
+    while dia <= dia_fim:
+        nome = feriado(dia)
+        if nome and dia.weekday() < 5:
+            feriados.append({"dia": dia.isoformat(), "nome": nome})
+        dia += timedelta(days=1)
+
     turnos = [
         {"dia": d.isoformat(), "turno": r, "inicio": _iso(a), "fim": _iso(b)}
         for a, b, d, r in jornada.turnos
@@ -231,6 +243,7 @@ def calcular_dashboard(dia_inicio, dia_fim):
         "maquinas_periodo": maquinas,
         "disponivel": disponivel,
         "turnos": turnos,
+        "feriados": feriados,
         "pausas": pausas,
     }
 

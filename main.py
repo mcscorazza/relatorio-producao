@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from dados import ler_jsonl
 from girador import detectar_ciclos_por_ancora, resumir_girador
+from periodos import intervalos_de_arco, uniao_de_arcos
 from html_renderer import gerar_html_novo
 from influx_client import consultar_tabelas_influx
 from soldagem import resumir_soldagem
@@ -91,7 +92,10 @@ def main():
     resumo_girador, tempos_girador, lacunas_girador, erros_girador = resumir_girador(registros_girador, janela_inicio, janela_fim)
 
     # Executar nova lógica analítica baseada em âncoras (30 e 40)
-    ciclos = detectar_ciclos_por_ancora(registros_girador, janela_inicio, janela_fim)
+    ciclos = detectar_ciclos_por_ancora(
+        registros_girador, janela_inicio, janela_fim,
+        arcos=uniao_de_arcos(intervalos_de_arco(registros_soldagem)),
+    )
 
     # Geração do HTML em tabela única e expansível
     gerar_html_novo(

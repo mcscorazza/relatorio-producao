@@ -1,0 +1,47 @@
+# Feriados e dias SEM TURNO. O dashboard e o relatório não consideram turno
+# nesses dias (nem tempo disponível, nem ociosidade).
+#
+# Formato (uma entrada por linha; tudo depois de '#' é comentário):
+#   AAAA-MM-DD  Descrição
+#   DD/MM/AAAA  Descrição
+#   AAAA-MM-DD..AAAA-MM-DD  Descrição      (intervalo, ex.: recesso coletivo)
+#
+# O arquivo é relido automaticamente quando você salva (não precisa reiniciar).
+# Confira as datas e acrescente os feriados municipais/estaduais e os recessos
+# da empresa: esta lista traz apenas os feriados nacionais de 2026.
+
+# --- Feriados nacionais 2026 ---
+2026-01-01  Confraternização Universal
+2026-04-03  Sexta-feira Santa
+2026-04-21  Tiradentes
+2026-05-01  Dia do Trabalho
+2026-06-04  Corpus Christi
+2026-09-07  Independência do Brasil
+2026-10-12  Nossa Senhora Aparecida
+2026-11-02  Finados
+2026-11-15  Proclamação da República
+2026-11-20  Consciência Negra
+2026-12-25  Natal
+
+# --- Feriados municipais / recessos da empresa (preencha) ---
+2026-05-19  Aniversário de Hortolândia
+2026-07-09  Revolução Constitucionalista SP
+
+2026-12-21..2027-01-03  Recesso de fim de ano 2026/2027
+
+# --- Feriados nacionais 2027 ---
+2027-01-01  Confraternização Universal
+2027-03-26  Sexta-feira Santa
+2027-04-21  Tiradentes
+2027-05-01  Dia do Trabalho
+2027-05-27  Corpus Christi
+2027-09-07  Independência do Brasil
+2027-10-12  Nossa Senhora Aparecida
+2027-11-02  Finados
+2027-11-15  Proclamação da República
+2027-11-20  Consciência Negra
+2027-12-25  Natal
+
+# --- Feriados municipais ---
+2027-05-19  Aniversário de Hortolândia
+2027-07-09  Revolução Constitucionalista SP
