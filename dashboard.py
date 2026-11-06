@@ -25,11 +25,11 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, render_template, request
 
-from config import TZ_LOCAL
+from config import DURACAO_MAXIMA_CICLO_S, TZ_LOCAL
 from dados import ler_jsonl
 from girador import detectar_ciclos_por_ancora, resumir_girador
 from influx_client import consultar_tabelas_influx
-from periodos import IndiceArco, Jornada, intervalos_de_arco, uniao_de_arcos
+from periodos import IndiceArco, Jornada, intervalos_de_arco, subtrair_intervalos, uniao_de_arcos
 from turnos import feriado
 
 log = logging.getLogger(__name__)
@@ -135,11 +135,12 @@ def _serializar_ciclo(c, jornada, indices_arco, fim_efetivo):
     }
 
 
-def _paradas(ciclos, jornada):
+def _paradas(ciclos, jornada, excluidos=()):
     """Ociosidade entre ciclos consecutivos, só dentro da jornada produtiva.
 
     Um intervalo que atravessa a noite ou o fim de semana conta apenas as
-    horas de turno; cada (dia, turno) afetado gera uma entrada.
+    horas de turno; cada (dia, turno) afetado gera uma entrada. Os períodos
+    `excluidos` (ciclos descartados por falha do sensor) não contam como ocioso.
     """
     paradas = []
     for atual, prox in zip(ciclos, ciclos[1:]):
@@ -149,10 +150,11 @@ def _paradas(ciclos, jornada):
         if fim <= ini:
             continue
         por_turno = {}
-        for a, b, dia, rotulo in jornada.fatiar(ini, fim):
-            item = por_turno.setdefault((dia, rotulo), {"ini": a, "fim": b, "s": 0.0})
-            item["fim"] = b
-            item["s"] += (b - a).total_seconds()
+        for fa, fb, dia, rotulo in jornada.fatiar(ini, fim):
+            for a, b in subtrair_intervalos(fa, fb, excluidos):
+                item = por_turno.setdefault((dia, rotulo), {"ini": a, "fim": b, "s": 0.0})
+                item["fim"] = b
+                item["s"] += (b - a).total_seconds()
         for (dia, rotulo), item in por_turno.items():
             if item["s"] < 1:
                 continue
@@ -181,9 +183,23 @@ def calcular_dashboard(dia_inicio, dia_fim):
     jornada = Jornada(dia_inicio, dia_fim, arcos, agora)
     indices_arco = {maq: IndiceArco(ivs) for maq, ivs in arcos.items()}
 
+    descartados_brutos = []
     ciclos = detectar_ciclos_por_ancora(
-        reg_girador, janela_inicio, janela_fim, arcos=uniao_de_arcos(arcos)
+        reg_girador, janela_inicio, janela_fim,
+        arcos=uniao_de_arcos(arcos), descartados=descartados_brutos,
     )
+    # Ciclos acima do limite de duração (falha do sensor): o período deles sai dos totais.
+    referencia = min(janela_fim, agora)
+    excluidos = [(c["inicio_ciclo"], c["fim_ciclo"] or referencia) for c in descartados_brutos]
+    descartados = [
+        {
+            "inicio": _iso(c["inicio_ciclo"]),
+            "fim": _iso(c["fim_ciclo"] or referencia),
+            "em_andamento": c["fim_ciclo"] is None,
+            "duracao_s": c["duracao_descartada_s"],
+        }
+        for c in descartados_brutos
+    ]
     _, _, lacunas_girador, _ = resumir_girador(reg_girador, janela_inicio, janela_fim)
 
     ciclos_json = [
@@ -197,6 +213,13 @@ def calcular_dashboard(dia_inicio, dia_fim):
         prod = jornada.segundos(a, b)
         if prod >= 1:
             lacunas.append({"fonte": "Girador", "inicio": _iso(a), "fim": _iso(b), "duracao_s": prod})
+    for (e_ini, e_fim), d in zip(excluidos, descartados):
+        prod = jornada.segundos(e_ini, e_fim)
+        if prod >= 1:
+            lacunas.append({
+                "fonte": f"Ciclo descartado (> {DURACAO_MAXIMA_CICLO_S // 3600} h)",
+                "inicio": d["inicio"], "fim": d["fim"], "duracao_s": prod,
+            })
     lacunas.sort(key=lambda x: x["inicio"])
 
     # Arco total por máquina no período, dentro da jornada produtiva.
@@ -209,7 +232,7 @@ def calcular_dashboard(dia_inicio, dia_fim):
 
     disponivel = [
         {"dia": d.isoformat(), "turno": t, "produtivo_s": s}
-        for (d, t), s in sorted(jornada.disponivel(agora).items())
+        for (d, t), s in sorted(jornada.disponivel(agora, excluidos).items())
     ]
     # Feriados em dias úteis do período (para a linha do tempo explicar a ausência de turno).
     feriados = []
@@ -238,7 +261,9 @@ def calcular_dashboard(dia_inicio, dia_fim):
         },
         "gerado_em": _iso(agora),
         "ciclos": ciclos_json,
-        "paradas": _paradas(ciclos, jornada),
+        "paradas": _paradas(ciclos, jornada, excluidos),
+        "descartados": descartados,
+        "limite_ciclo_s": DURACAO_MAXIMA_CICLO_S,
         "lacunas_dados": lacunas,
         "maquinas_periodo": maquinas,
         "disponivel": disponivel,

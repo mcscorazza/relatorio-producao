@@ -3,7 +3,7 @@ from collections import Counter
 from dados import parse_iso_utc
 
 from datetime import datetime, timedelta
-from config import TZ_LOCAL
+from config import DURACAO_MAXIMA_CICLO_S, TZ_LOCAL
 
 def resumir_girador(registros, janela_inicio, janela_fim):
     contagem = Counter()
@@ -53,7 +53,7 @@ def _primeiro_arco(arcos, fins, ini, fim):
     return datetime.fromtimestamp(max(arcos[k][0], ini_ts), tz=TZ_LOCAL)
 
 
-def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim, arcos=None):
+def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim, arcos=None, descartados=None):
     """
     Detecta ciclos completos (Etapas 10 a 60) pelas âncoras laterais.
 
@@ -67,6 +67,9 @@ def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim, arcos=None)
       chega em 0°/180° (e antes da etapa 30). Sem `arcos` (ou sem solda nesse
       trecho), usa o instante em que o girador chegou na posição.
     - Etapa 10: cinco minutos antes da etapa 20.
+    - Ciclos com duração acima de DURACAO_MAXIMA_CICLO_S (5 h) são descartados
+      (provável falha do sensor). Se `descartados` (lista) for informada, os
+      ciclos descartados dentro da janela são acrescentados a ela.
     - Etapa 60: limitada a cinco minutos.
     """
     LIMITE_RUIDO_270_SEGUNDOS = 90
@@ -440,6 +443,28 @@ def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim, arcos=None)
             (fim_prox - proximo["inicio_ciclo"]).total_seconds()
             if fim_prox else None
         )
+
+    # ---------------------------------------------------------
+    # 8.3 Descartar ciclos com duração anormal (> 5 h)
+    #
+    # Para ciclo ainda em andamento, a duração vai até o fim da janela
+    # ou até agora (o que vier primeiro). Os ciclos restantes são
+    # renumerados em sequência.
+    # ---------------------------------------------------------
+    referencia = min(janela_fim, datetime.now(TZ_LOCAL))
+    mantidos = []
+    for c in ciclos:
+        fim_efetivo = c["fim_ciclo"] or referencia
+        duracao = (fim_efetivo - c["inicio_ciclo"]).total_seconds()
+        if duracao > DURACAO_MAXIMA_CICLO_S:
+            c["duracao_descartada_s"] = duracao
+            if descartados is not None and janela_inicio <= c["etapa_30"]["inicio"] <= janela_fim:
+                descartados.append(c)
+        else:
+            mantidos.append(c)
+    ciclos = mantidos
+    for numero, c in enumerate(ciclos, start=1):
+        c["numero"] = numero
 
     # ---------------------------------------------------------
     # 9. Filtrar pela janela solicitada

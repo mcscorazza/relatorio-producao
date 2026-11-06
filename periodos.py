@@ -71,6 +71,23 @@ def uniao_de_arcos(arcos_por_maquina):
     ]
 
 
+def subtrair_intervalos(a, b, excluidos):
+    """Partes de [a, b] fora dos `excluidos` ([(ini, fim)], datetimes) -> [(ini, fim)]."""
+    partes = [(a, b)]
+    for e_ini, e_fim in excluidos:
+        novas = []
+        for p_ini, p_fim in partes:
+            if e_fim <= p_ini or e_ini >= p_fim:
+                novas.append((p_ini, p_fim))
+                continue
+            if e_ini > p_ini:
+                novas.append((p_ini, e_ini))
+            if e_fim < p_fim:
+                novas.append((e_fim, p_fim))
+        partes = novas
+    return partes
+
+
 class IndiceArco:
     """Intervalos de uma máquina, com busca rápida por janela."""
 
@@ -216,11 +233,16 @@ class Jornada:
                 return dia, rotulo
         return (dt - timedelta(hours=2)).date(), "Fora de turno"
 
-    def disponivel(self, ate):
-        """{(dia, rótulo): segundos produtivos} até o instante 'ate'."""
+    def disponivel(self, ate, excluir=()):
+        """{(dia, rótulo): segundos produtivos} até o instante 'ate'.
+
+        `excluir`: [(ini, fim)] a descontar (ex.: ciclos descartados por falha do sensor).
+        """
         por_turno = {}
         for ini, fim, _, _, dia, rotulo in self.segmentos:
             fim = min(fim, ate)
-            if fim > ini:
-                por_turno[(dia, rotulo)] = por_turno.get((dia, rotulo), 0.0) + (fim - ini).total_seconds()
+            if fim <= ini:
+                continue
+            for a, b in subtrair_intervalos(ini, fim, excluir):
+                por_turno[(dia, rotulo)] = por_turno.get((dia, rotulo), 0.0) + (b - a).total_seconds()
         return por_turno

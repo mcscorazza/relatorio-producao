@@ -315,6 +315,11 @@
         background: var(--bad-soft);
         color: var(--bad);
       }
+      .msg.aviso {
+        background: var(--warn-soft);
+        color: var(--warn);
+        font-size: 13px;
+      }
       details.info {
         background: var(--surface);
         border: 1px solid var(--line);
@@ -1614,9 +1619,16 @@
                 `${fmtDia(p.dia)} ${esc(p.nome)} ${fmtHM(p.inicio)}–${fmtHM(p.fim)}`,
             )
             .join(" · ");
+          const desc = j.descartados || [];
+          $("#aviso").innerHTML = desc.length
+            ? `<div class="msg aviso"><b>${desc.length === 1 ? "1 ciclo descartado" : desc.length + " ciclos descartados"}</b> por durar mais de ${j.limite_ciclo_s / 3600} h (provável falha do sensor do girador): ` +
+              desc.map((d) => `${fmtDH(d.inicio)} → ${fmtDH(d.fim)}${d.em_andamento ? " (ainda em andamento)" : ""} · ${fmtDur(d.duracao_s)}`).join(" · ") +
+              `. Esse período não entra nos totais.</div>`
+            : "";
           $("#jornadaTxt").innerHTML =
             `Só entra nos totais o tempo dentro dos turnos (seg–qui 06:30–16:20 e 16:20–01:40; sex 06:30–14:20 e 14:20–21:40), sem finais de semana, sem feriados (arquivo feriados.txt) e sem as pausas de almoço e janta (1h cada; 12:00–13:00 e 19:30–20:30 por padrão, ou inferidas pelos dados quando há solda nesses horários).` +
-            (pausas ? `<br><b>Pausas consideradas:</b> ${pausas}` : "");
+            (pausas ? `<br><b>Pausas consideradas:</b> ${pausas}` : "") +
+            `<br>Ciclos com mais de ${j.limite_ciclo_s / 3600} h são descartados (provável falha do sensor) e o período deles sai dos totais.`;
           try {
             await document.fonts.ready;
           } catch (e) {} // mede os rótulos dos gráficos já com a fonte final
