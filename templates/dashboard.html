@@ -812,6 +812,78 @@
           font-size: 48px;
         }
       }
+
+      /* Rodapé (aviso de ciclos descartados + explicação dos tempos) */
+      .rodape {
+        margin-top: 24px;
+      }
+      .rodape .msg {
+        margin-bottom: 12px;
+      }
+      .rodape details.info {
+        margin-bottom: 0;
+      }
+
+      /* Botão Atualizar: texto no desktop, ícone de check no celular */
+      .btn-ico {
+        display: none;
+      }
+      .btn.loading .btn-ico {
+        animation: pulse 1s infinite;
+      }
+
+      @media (max-width: 760px) {
+        /* Topo enxuto: logo/título, datas, atualizar (check) e tema */
+        .so-desktop {
+          display: none !important;
+        }
+        .top .wrap {
+          gap: 10px;
+          padding-top: 10px;
+          padding-bottom: 10px;
+        }
+        .brand {
+          width: 100%;
+          margin-right: 0;
+        }
+        .controls {
+          width: 100%;
+          flex-wrap: nowrap;
+          gap: 8px;
+        }
+        .pill {
+          flex: 1;
+          min-width: 0;
+          padding: 2px 8px;
+          gap: 4px;
+        }
+        .pill input {
+          flex: 1;
+          min-width: 0;
+          width: 100%;
+          font-size: 13px;
+          padding: 8px 0;
+        }
+        .btn {
+          flex: none;
+          width: 40px;
+          height: 40px;
+          padding: 0;
+          display: grid;
+          place-items: center;
+        }
+        .btn .btn-txt {
+          display: none;
+        }
+        .btn .btn-ico {
+          display: block;
+        }
+        .icon-btn {
+          flex: none;
+          width: 40px;
+          height: 40px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -848,15 +920,31 @@
               aria-label="Data final"
             />
           </div>
-          <button class="chip" data-rapido="1">Hoje</button>
-          <button class="chip" data-rapido="7">7 dias</button>
-          <button class="chip" data-rapido="30">30 dias</button>
-          <div class="seg" id="seg" role="group" aria-label="Turno">
+          <button class="chip so-desktop" data-rapido="1">Hoje</button>
+          <button class="chip so-desktop" data-rapido="7">7 dias</button>
+          <button class="chip so-desktop" data-rapido="30">30 dias</button>
+          <div class="seg so-desktop" id="seg" role="group" aria-label="Turno">
             <button data-t="todos" class="on">Todos</button>
             <button data-t="1º turno">1º turno</button>
             <button data-t="2º turno">2º turno</button>
           </div>
-          <button class="btn" id="atualizar">Atualizar</button>
+          <button class="btn" id="atualizar" title="Atualizar" aria-label="Atualizar">
+            <span class="btn-txt">Atualizar</span>
+            <svg
+              class="btn-ico"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </button>
           <button
             class="icon-btn"
             id="tema"
@@ -882,10 +970,6 @@
 
     <main class="wrap" id="app">
       <div id="aviso"></div>
-      <details class="info" id="jornada">
-        <summary>Como os tempos são calculados</summary>
-        <p id="jornadaTxt"></p>
-      </details>
 
       <section class="kpis skel" id="kpis"></section>
 
@@ -956,6 +1040,14 @@
         <div class="legend" id="legEtapas"></div>
         <div class="tbl-wrap"><table id="tabela"></table></div>
       </section>
+
+      <footer class="rodape">
+        <div id="avisoDescartes"></div>
+        <details class="info" id="jornada">
+          <summary>Como os tempos são calculados</summary>
+          <p id="jornadaTxt"></p>
+        </details>
+      </footer>
     </main>
 
     <script>
@@ -1601,10 +1693,12 @@
         const btn = $("#atualizar");
         if (!di || !df) return;
         btn.disabled = true;
-        btn.textContent = "Carregando…";
+        btn.classList.add("loading");
+        $("#atualizar .btn-txt").textContent = "Carregando…";
         status("load", "Consultando dados…");
         $("#kpis").classList.add("skel");
         $("#aviso").innerHTML = "";
+        $("#avisoDescartes").innerHTML = "";
         try {
           const r = await fetch(
             `/dashboard/api/dados?data_inicio=${di}&data_fim=${df}`,
@@ -1620,7 +1714,7 @@
             )
             .join(" · ");
           const desc = j.descartados || [];
-          $("#aviso").innerHTML = desc.length
+          $("#avisoDescartes").innerHTML = desc.length
             ? `<div class="msg aviso"><b>${desc.length === 1 ? "1 ciclo descartado" : desc.length + " ciclos descartados"}</b> por durar mais de ${j.limite_ciclo_s / 3600} h (provável falha do sensor do girador): ` +
               desc.map((d) => `${fmtDH(d.inicio)} → ${fmtDH(d.fim)}${d.em_andamento ? " (ainda em andamento)" : ""} · ${fmtDur(d.duracao_s)}`).join(" · ") +
               `. Esse período não entra nos totais.</div>`
@@ -1643,7 +1737,8 @@
             `<div class="msg erro">${esc(e.message)}</div>`;
         } finally {
           btn.disabled = false;
-          btn.textContent = "Atualizar";
+          btn.classList.remove("loading");
+          $("#atualizar .btn-txt").textContent = "Atualizar";
         }
       }
 
