@@ -74,6 +74,8 @@ def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim, arcos=None,
     """
     LIMITE_RUIDO_270_SEGUNDOS = 90
     fins_arcos = [a[1] for a in arcos] if arcos else []
+    # Fim de referência para etapas/ciclos ainda abertos: o fim da janela ou agora.
+    referencia = min(janela_fim, datetime.now(TZ_LOCAL))
 
     # ---------------------------------------------------------
     # 1. Ler registros
@@ -357,8 +359,16 @@ def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim, arcos=None,
             else None
         )
 
+        # Extensão real do ciclo: do início até o fim da última etapa detectada.
+        # Se passar do limite, as âncoras provavelmente ficaram "travadas"
+        # (falha do sensor) e o ciclo é inválido.
+        ultima_etapa = e_60 or e_50 or e_40
+        fim_extensao = (ultima_etapa["fim"] or referencia) if ultima_etapa else referencia
+        invalido = (fim_extensao - inicio_ciclo).total_seconds() > DURACAO_MAXIMA_CICLO_S
+
         ciclos.append({
             "numero": numero_ciclo,
+            "descartar": invalido,
             "inicio_ciclo": inicio_ciclo,
             "fim_ciclo": fim_ciclo,
             "duracao_ciclo": (
@@ -377,9 +387,16 @@ def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim, arcos=None,
 
         numero_ciclo += 1
 
-        # Avançar para evitar reutilizar as âncoras do mesmo ciclo.
-        i = idx_60 if idx_60 != -1 else idx_40
-        i += 1
+        if invalido:
+            # Ciclo inválido: avança só uma posição. As etapas seguintes podem
+            # pertencer a uma viga real (ex.: a lateral "puxada" como etapa 40
+            # é, na verdade, a etapa 30 do ciclo seguinte) e não podem ser
+            # consumidas por este ciclo.
+            i = idx_30 + 1
+        else:
+            # Avançar para evitar reutilizar as âncoras do mesmo ciclo.
+            i = idx_60 if idx_60 != -1 else idx_40
+            i += 1
 
     # ---------------------------------------------------------
     # 8.1 Finalizar ciclos sem etapa 60 quando já existe um próximo
@@ -390,6 +407,14 @@ def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim, arcos=None,
     # seja considerado mesmo que esteja fora da janela.)
     # ---------------------------------------------------------
     for atual, proximo in zip(ciclos, ciclos[1:]):
+        if atual.get("descartar"):
+            # Ciclo inválido (sensor travado): será descartado, então não pode
+            # interferir no seguinte. Seu período termina onde o próximo começa.
+            if atual["fim_ciclo"] is None or atual["fim_ciclo"] > proximo["inicio_ciclo"]:
+                atual["fim_ciclo"] = proximo["inicio_ciclo"]
+                atual["duracao_ciclo"] = (atual["fim_ciclo"] - atual["inicio_ciclo"]).total_seconds()
+            continue
+
         if atual["fim_ciclo"] is not None:
             continue
 
@@ -447,16 +472,16 @@ def detectar_ciclos_por_ancora(registros, janela_inicio, janela_fim, arcos=None,
     # ---------------------------------------------------------
     # 8.3 Descartar ciclos com duração anormal (> 5 h)
     #
-    # Para ciclo ainda em andamento, a duração vai até o fim da janela
-    # ou até agora (o que vier primeiro). Os ciclos restantes são
-    # renumerados em sequência.
+    # Descarta os ciclos marcados como inválidos no laço de detecção e os
+    # que, depois do fechamento forçado, ainda passam do limite. Para ciclo
+    # ainda em andamento, a duração vai até o fim da janela ou até agora (o
+    # que vier primeiro). Os ciclos restantes são renumerados em sequência.
     # ---------------------------------------------------------
-    referencia = min(janela_fim, datetime.now(TZ_LOCAL))
     mantidos = []
     for c in ciclos:
         fim_efetivo = c["fim_ciclo"] or referencia
         duracao = (fim_efetivo - c["inicio_ciclo"]).total_seconds()
-        if duracao > DURACAO_MAXIMA_CICLO_S:
+        if c.get("descartar") or duracao > DURACAO_MAXIMA_CICLO_S:
             c["duracao_descartada_s"] = duracao
             if descartados is not None and janela_inicio <= c["etapa_30"]["inicio"] <= janela_fim:
                 descartados.append(c)
